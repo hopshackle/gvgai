@@ -182,6 +182,36 @@ public class HopshackleUtilities {
         return retValue;
     }
 
+    public static double findKthValueIn(double[] inputArray, int k) {
+        double[] array = inputArray.clone();
+        for (int i = 0; i < k; i++) {
+            double minValue = array[i];
+            for (int j = i + 1; j < array.length; j++) {
+                if (array[j] < minValue) {  // lower than minValue
+                    minValue = array[j];
+                    array[j] = array[i];
+                    array[i] = minValue;
+                }
+            }
+        }
+        return array[k-1];
+    }
+
+    public static <A extends Comparable> A findKthValueIn(A[] inputArray, int k) {
+        A[] array = inputArray.clone();
+        for (int i = 0; i < k; i++) {
+            A minValue = array[i];
+            for (int j = i + 1; j < array.length; j++) {
+                if (array[j].compareTo(minValue) < 0) {  // lower than minValue
+                    minValue = array[j];
+                    array[j] = array[i];
+                    array[i] = minValue;
+                }
+            }
+        }
+        return array[k];
+    }
+
     public static double[] expNormalise(double[] input) {
         double[] outputs = new double[input.length];
         double maxValue = Double.NEGATIVE_INFINITY;
@@ -191,11 +221,13 @@ public class HopshackleUtilities {
         }
         for (int i = 0; i < outputs.length; i++) {
             outputs[i] -= maxValue;
-            outputs[i] = Math.exp(outputs[i]);
-        }
-        for (int i = 0; i < outputs.length; i++) {
-            outputs[i] -= maxValue;
-            outputs[i] = Math.exp(outputs[i]);
+            double expVal = Math.exp(outputs[i]);
+            if (Double.isNaN(expVal)) {
+                outputs[i] = 1.0;
+                System.out.println(String.format("%.2f exponentiates to NaN", outputs[i]));
+            } else {
+                outputs[i] = expVal;
+            }
         }
         double total = 0.0;
         for (int i = 0; i < outputs.length; i++) {
@@ -203,6 +235,9 @@ public class HopshackleUtilities {
         }
         for (int i = 0; i < outputs.length; i++) {
             outputs[i] /= total;
+        }
+        if (Double.isNaN(outputs[0])) {
+            throw new AssertionError("Invalid pdf");
         }
         return outputs;
     }

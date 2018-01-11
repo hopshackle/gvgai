@@ -1,6 +1,7 @@
 package hopshackle1;
 
 import serialization.*;
+
 import java.util.*;
 
 public class Mesh {
@@ -16,14 +17,16 @@ public class Mesh {
     public static Cell[][] extractMeshAroundAvatar(int meshSize, SerializableStateObservation sso, int xOffset, int yOffset) {
         Observation[][][] observations_grid = sso.getObservationGrid();
         Cell[][] retValue = new Cell[meshSize][meshSize];
+        // note that Cell just records ctaegory and type of every sprite
+        // This drops the other data (position, obsID, distance) that are in Observation
 
         if (observations_grid == null || observations_grid.length == 0) {
             return null;
         }
 
         double[] avatar_pos = sso.getAvatarPosition();
-        int x = (int) (avatar_pos[0]) + xOffset;
-        int y = (int) (avatar_pos[1]) + yOffset;
+        int x = (int) (avatar_pos[0]) / sso.blockSize + xOffset;
+        int y = (int) (avatar_pos[1]) / sso.blockSize + yOffset;
 
         double max_width = observations_grid.length;
         double max_hight = (observations_grid[0].length);
@@ -64,8 +67,8 @@ public class Mesh {
         Mesh other = (Mesh) comparison;
 
         // check mesh
-        for (int i=0; i<meshSize; i++) {
-            for (int j=1; j<meshSize; j++) {
+        for (int i = 0; i < meshSize; i++) {
+            for (int j = 1; j < meshSize; j++) {
                 if (mesh_[i][j] != other.mesh_[i][j]) {
                     return false;
                 }
@@ -73,5 +76,25 @@ public class Mesh {
         }
 
         return true;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder retValue = new StringBuilder("Mesh Size = " + meshSize + "\n");
+        for (int i = 0; i < mesh_.length; i++) {
+            for (int j = 0; j < mesh_[i].length; j++) {
+                String cellContents = "empty";
+                if (mesh_[i][j].getNbObservations() != 0) {
+                    mesh_[i][j].getObservations();
+                    cellContents = "";
+                    for (int[] detail : mesh_[i][j].getObservations()) {
+                        cellContents += String.format("category=%d, itype=%d", detail[0], detail[1]);
+                    }
+
+                }
+                retValue.append(String.format("%d%/%d %s\n", i, j, cellContents));
+            }
+        }
+        return retValue.toString();
     }
 }

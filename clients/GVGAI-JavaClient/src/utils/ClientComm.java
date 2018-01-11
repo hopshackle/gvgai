@@ -82,6 +82,7 @@ public class ClientComm {
         try {
             listen();
         } catch (Exception e) {
+            e.printStackTrace();
             io.logStackTrace(e);
         }
     }

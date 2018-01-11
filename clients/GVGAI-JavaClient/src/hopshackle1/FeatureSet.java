@@ -8,5 +8,5 @@ public interface FeatureSet {
     This specifies which features we use to define a given state
      */
 
-    public State describeObservation(SerializableStateObservation obs);
+    void describeObservation(SerializableStateObservation obs, State state);
 }

@@ -6,9 +6,11 @@ import java.util.*;
 public class MeshHash {
 
     private int hashCode;
+    public Cell[][] mesh;
 
     public MeshHash(int meshSize, SerializableStateObservation sso, int xOffset, int yOffset) {
-        this.hashCode = calculateFeatureHash(Mesh.extractMeshAroundAvatar(meshSize, sso, xOffset, yOffset));
+        this.mesh = Mesh.extractMeshAroundAvatar(meshSize, sso, xOffset, yOffset);
+        this.hashCode = calculateFeatureHash(mesh);
     }
 
     private int calculateFeatureHash(Cell[][] mesh_) {
@@ -54,4 +56,23 @@ public class MeshHash {
         }
     };
 
+    @Override
+    public String toString() {
+        StringBuilder retValue = new StringBuilder(String.format("Hash: %d, Mesh Size: %d by %d\n", hashCode, mesh.length, mesh[0].length));
+        for (int i = 0; i < mesh.length; i++) {
+            for (int j = 0; j < mesh[i].length; j++) {
+                String cellContents = "empty";
+                if (mesh[i][j] != null && mesh[i][j].getNbObservations() != 0) {
+                    mesh[i][j].getObservations();
+                    cellContents = "";
+                    for (int[] detail : mesh[i][j].getObservations()) {
+                        cellContents += String.format("category=%d, itype=%d", detail[0], detail[1]);
+                    }
+
+                }
+                retValue.append(String.format("\t%d:%d %s\n", i, j, cellContents));
+            }
+        }
+        return retValue.toString();
+    }
 }

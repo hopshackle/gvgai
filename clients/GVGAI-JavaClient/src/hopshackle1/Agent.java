@@ -16,17 +16,25 @@ public class Agent extends utils.AbstractPlayer {
     public int iter_;
     public State last_state_;
     public Types.ACTIONS last_action_;
+    public List<Types.ACTIONS> lastAvailableActions;
     public double last_score_;
     public Random rdm_;
     public GameSelector game_selector_;
     public int current_level_;
     public int game_plays_;
+    public double gamma = 0.95;
+    public double alpha = 0.001;
+    public double lambda = 0.001;
+    public double epsilon = 0.10;
+    private double gameWinBonus = 100.0;
 
-    private FeatureSet featureSet = new AvatarMeshFeatureSet();
-    private List<LinkedList<SARTuple>> historicTrajectories = new ArrayList<>();
+    private EntityLog logFile = new EntityLog("Hopshackle1");
+    private boolean debug = false;
+
+    private FeatureSet[] featureSets = {new AvatarMeshFeatureSet(), new GlobalPopulationFeatureSet()};
     private LinkedList<SARTuple> currentTrajectory;
 
-    private Policy policy = new Policy();
+    private Policy policy = new PolicyQLearning(alpha, gamma, lambda, epsilon);
 
     /**
      * Public method to be called at the start of the communication. No game has been initialized yet.
@@ -54,8 +62,8 @@ public class Agent extends utils.AbstractPlayer {
      */
     @Override
     public void init(SerializableStateObservation sso, ElapsedCpuTimer elapsedTimer) {
-        ArrayList<Types.ACTIONS> actions = sso.getAvailableActions();
         currentTrajectory = new LinkedList<>();
+        if (debug) logFile.log("Initialising new trajectory");
     }
 
 
@@ -76,13 +84,21 @@ public class Agent extends utils.AbstractPlayer {
         double reward = calculateReward(sso);
 
         if (last_state_ != null) {
-            currentTrajectory.add(new SARTuple(last_state_, last_action_, reward));
+            SARTuple tuple = new SARTuple(last_state_, state, last_action_, lastAvailableActions, sso.availableActions, reward);
+            currentTrajectory.add(tuple);
+            if (debug) {
+                logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f", tuple.ref, last_action_, reward));
+            }
         }
 
         Types.ACTIONS action = applyPolicy(sso, state);
+        if (debug) {
+            logFile.log(String.format("Action %s taken with Avatar at %.0f/%.0f", action.toString(), sso.avatarPosition[0], sso.avatarPosition[1]));
+        }
 
         last_score_ = new_score;
         last_action_ = action;
+        lastAvailableActions = sso.availableActions;
         last_state_ = state;
         iter_++;
 
@@ -105,17 +121,35 @@ public class Agent extends utils.AbstractPlayer {
     public int result(SerializableStateObservation sso, ElapsedCpuTimer elapsedTimer) {
 
         // add final state to trajectory
-        double new_score = sso.gameScore;
         double reward = calculateReward(sso);
-        currentTrajectory.add(new SARTuple(last_state_, last_action_, reward));
+        SARTuple tuple = new SARTuple(last_state_, new State(), last_action_, lastAvailableActions, new ArrayList(), reward);
+        currentTrajectory.add(tuple);
+        if (debug) {
+            logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f and final score %.2f", tuple.ref, last_action_, reward, sso.gameScore));
+            logFile.log("End of game.");
+            logFile.flush();
+        }
 
-        historicTrajectories.add(currentTrajectory);
+        last_score_ = 0.0;
+        last_state_ = null;
+        lastAvailableActions = null;
+
+        Iterator<SARTuple> backwardsChain = currentTrajectory.descendingIterator();
+        double chainReward = backwardsChain.next().reward;  // pick base reward from the end of the chain
+        while (backwardsChain.hasNext()) {
+            SARTuple previous = backwardsChain.next();
+            chainReward = chainReward * gamma + previous.reward;
+            previous.reward = chainReward;
+        }
 
         game_plays_++;
 
         game_selector_.addScore(current_level_, reward);
 
+        long start = elapsedTimer.elapsed();
         doLearnin();
+        long end = elapsedTimer.elapsed();
+        logFile.log("Learning takes " + ((end - start) / 1000000) + "ms");
 
         if (game_plays_ < 3) {
             current_level_++;
@@ -132,17 +166,19 @@ public class Agent extends utils.AbstractPlayer {
      * @param sso
      */
     public State extractFeature(SerializableStateObservation sso) {
-        State state = featureSet.describeObservation(sso);
-        return state;
+        State retValue = new State();
+        for (FeatureSet fs : featureSets)
+            fs.describeObservation(sso, retValue);
+        return retValue;
     }
 
     public double calculateReward(SerializableStateObservation sso) {
         double new_score = sso.gameScore;
         if (sso.isGameOver) {
             if (sso.gameWinner == Types.WINNER.PLAYER_WINS) {
-                new_score += 1000;
+                new_score += gameWinBonus;
             } else if (sso.gameWinner == Types.WINNER.PLAYER_LOSES) {
-                new_score -= 1000;
+                new_score -= gameWinBonus;
             }
         }
         return new_score - last_score_;
@@ -150,10 +186,11 @@ public class Agent extends utils.AbstractPlayer {
 
 
     public void doLearnin() {
-        // TODO: do tha learnin stuff
+        // execute a simple run of Policy Learning by gradient descent
+        policy.learnFrom(currentTrajectory);
     }
 
     public Types.ACTIONS applyPolicy(SerializableStateObservation sso, State state) {
-        return policy.chooseAction(sso.getAvailableActions(), state);
+        return policy.chooseAction(sso.getAvailableActions(), state, debug);
     }
 }
