@@ -1,6 +1,7 @@
 package hopshackle1;
 
 import serialization.Types;
+import utils.ElapsedCpuTimer;
 
 import java.util.*;
 
@@ -10,5 +11,7 @@ public interface Policy {
 
     public void learnFrom(SARTuple tuple);
 
-    public Types.ACTIONS chooseAction(List<Types.ACTIONS> actions, State state, boolean actionDebug);
+    public Types.ACTIONS chooseAction(List<Types.ACTIONS> actions, State state);
+
+    public void learnUntil(ElapsedCpuTimer cpuTimer, int milliSeconds);
 }

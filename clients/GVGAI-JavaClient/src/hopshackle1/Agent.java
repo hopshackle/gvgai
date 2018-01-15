@@ -24,11 +24,12 @@ public class Agent extends utils.AbstractPlayer {
     public int game_plays_;
     public double gamma = 0.95;
     public double alpha = 0.001;
-    public double lambda = 0.001;
+    public double lambda = 0.0001;
     public double epsilon = 0.10;
+    private int nStepParameter = 1;
     private double gameWinBonus = 100.0;
 
-    private EntityLog logFile = new EntityLog("Hopshackle1");
+    private EntityLog logFile;
     private boolean debug = false;
 
     private FeatureSet[] featureSets = {new AvatarMeshFeatureSet(), new GlobalPopulationFeatureSet()};
@@ -50,6 +51,7 @@ public class Agent extends utils.AbstractPlayer {
         this.game_selector_ = new GameSelector();
         this.current_level_ = 0;
         this.game_plays_ = 0;
+        if (debug) logFile = new EntityLog("Hopshackle1");
     }
 
 
@@ -96,6 +98,8 @@ public class Agent extends utils.AbstractPlayer {
             logFile.log(String.format("Action %s taken with Avatar at %.0f/%.0f", action.toString(), sso.avatarPosition[0], sso.avatarPosition[1]));
         }
 
+        policy.learnUntil(elapsedTimer, 30);
+
         last_score_ = new_score;
         last_action_ = action;
         lastAvailableActions = sso.availableActions;
@@ -134,22 +138,17 @@ public class Agent extends utils.AbstractPlayer {
         last_state_ = null;
         lastAvailableActions = null;
 
-        Iterator<SARTuple> backwardsChain = currentTrajectory.descendingIterator();
-        double chainReward = backwardsChain.next().reward;  // pick base reward from the end of the chain
-        while (backwardsChain.hasNext()) {
-            SARTuple previous = backwardsChain.next();
-            chainReward = chainReward * gamma + previous.reward;
-            previous.reward = chainReward;
-        }
-
         game_plays_++;
 
         game_selector_.addScore(current_level_, reward);
 
         long start = elapsedTimer.elapsed();
+
         doLearnin();
+
         long end = elapsedTimer.elapsed();
-        logFile.log("Learning takes " + ((end - start) / 1000000) + "ms");
+
+        if (debug) logFile.log("Learning takes " + ((end - start) / 1000000) + "ms");
 
         if (game_plays_ < 3) {
             current_level_++;
@@ -186,11 +185,12 @@ public class Agent extends utils.AbstractPlayer {
 
 
     public void doLearnin() {
-        // execute a simple run of Policy Learning by gradient descent
+        // execute a simple run of Policy Learning by gradient descent after updating rewards on trajectory
+        SARTuple.chainRewardsBackwards(currentTrajectory, nStepParameter, gamma);
         policy.learnFrom(currentTrajectory);
     }
 
     public Types.ACTIONS applyPolicy(SerializableStateObservation sso, State state) {
-        return policy.chooseAction(sso.getAvailableActions(), state, debug);
+        return policy.chooseAction(sso.getAvailableActions(), state);
     }
 }

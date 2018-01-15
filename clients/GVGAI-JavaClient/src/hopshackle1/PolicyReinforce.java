@@ -3,12 +3,12 @@ package hopshackle1;
 import java.util.*;
 
 import serialization.Types.*;
+import utils.ElapsedCpuTimer;
 
 public class PolicyReinforce implements Policy {
 
-    private List<Map<Integer, Double>> coefficients;
-    private List<ACTIONS> actions;
     private Random rdm = new Random(45);
+    private PolicyCoeffCore coeffs;
     private double alpha, lambda;
     private double epsilon = 0.05;
     private boolean debug = true;
@@ -18,27 +18,25 @@ public class PolicyReinforce implements Policy {
     private boolean usePreviousEpochsForValueTraining = false;
     private boolean meanRewardAsBaseline = true;
     private boolean useValueFunctionAsBaseline = false;
-    private int maxTuplesForTraining = 0;
-    private int featureCountForValueFunction = 100;
+    private int featureCountForValueFunction= 100;
     private double meanReward;
+    private double temperature = 1.0;
     private String winnowFeatures = "ENTROPY";
-    private List<SARTuple> historicTrajectories = new ArrayList();
+    private TupleDataBank databank = new TupleDataBank(1000);
+
     private EntityLog logFile = new EntityLog("Policy");
     private EntityLog pdfFile = new EntityLog("ActionChoice");
 
     public PolicyReinforce(double learningRate, double regularisation) {
-        coefficients = new ArrayList<>();
-        coefficients.add(new HashMap());    // the Value function is always at index = 0
-        actions = new ArrayList<>();
-        actions.add(null);  // a dummy placeholder for Value, so that coefficients and actions use the same index
         alpha = learningRate;
         lambda = regularisation;
+        coeffs = new PolicyCoeffCore("REINFORCE", debug);
     }
 
-    public ACTIONS chooseAction(List<ACTIONS> actions, State state, boolean actionDebug) {
-        double[] pdf = getProbabilityDistributionOverActions(actions, state.features);
+    public ACTIONS chooseAction(List<ACTIONS> actions, State state) {
+        double[] pdf = coeffs.getProbabilityDistributionOverActions(actions, state, temperature);
         double roll = rdm.nextDouble();
-        if (debug || actionDebug) {
+        if (debug) {
             pdfFile.log("PDF for actions is:");
             for (int i = 0; i < pdf.length; i++) {
                 pdfFile.log(String.format("\t%.3f\t%s", pdf[i], actions.get(i)));
@@ -48,54 +46,11 @@ public class PolicyReinforce implements Policy {
         for (int i = 0; i < pdf.length; i++) {
             cdf += pdf[i];
             if (roll <= cdf) {
-                if (debug || actionDebug) pdfFile.log("Chooses action " + actions.get(i));
+                if (debug) pdfFile.log("Chooses action " + actions.get(i));
                 return actions.get(i);
             }
         }
         throw new AssertionError("Should not be able to get here in theory. " + HopshackleUtilities.formatArray(pdf, ", ", "%.5f"));
-    }
-
-    private double[] getProbabilityDistributionOverActions(List<ACTIONS> actions, Map<Integer, Double> stateFeatures) {
-        double[] retValue = new double[actions.size()];
-        int count = 0;
-        for (ACTIONS a : actions) {
-            int index = getIndexForAction(a);
-            for (int feature : stateFeatures.keySet()) {
-                double coeff = getCoeffFor(index, feature);
-                retValue[count] += stateFeatures.get(feature) * coeff;
-            }
-            count++;
-        }
-        retValue = HopshackleUtilities.expNormalise(retValue);
-        return retValue;
-    }
-
-    private double valueState(Map<Integer, Double> stateFeatures) {
-        double retValue = 0.0;
-        for (int feature : stateFeatures.keySet()) {
-            double coeff = getCoeffFor(0, feature);
-            retValue += stateFeatures.get(feature) * coeff;
-        }
-        return retValue;
-    }
-
-    private int getIndexForAction(ACTIONS a) {
-        int index = actions.indexOf(a);
-        if (index == -1) {
-            index = actions.size();
-            actions.add(a);
-            coefficients.add(new HashMap<>());
-        }
-        return index;
-    }
-
-
-    private double getCoeffFor(int index, int feature) {
-        Map<Integer, Double> actionCoeffs = coefficients.get(index);
-        if (!actionCoeffs.containsKey(feature)) {
-            actionCoeffs.put(feature, 0.0);
-        }
-        return actionCoeffs.get(feature);
     }
 
     private void regressValueFrom(List<SARTuple> trajectory) {
@@ -201,12 +156,11 @@ public class PolicyReinforce implements Policy {
         // Now need to translate weights back
         // first blank out previous estimator (TODO: calculate this as an exponential moving average)
         double[] regressedWeights = regressor.getWeights();
-        Map<Integer, Double> valueWeights = new HashMap();
-        coefficients.set(0, valueWeights);
+        coeffs.clearCoeffs(0);
         // then run through each weight from regression, and insert it in correct place
         for (int i = 0; i < regressedWeights.length; i++) {
             int feature = featuresInOrder.get(i);
-            valueWeights.put(feature, regressedWeights[i]);
+            coeffs.setCoeffFor(0, feature, regressedWeights[i]);
         }
     }
 
@@ -214,19 +168,14 @@ public class PolicyReinforce implements Policy {
     Only pass in *new* trajectory data. Policy will maintain old trajectory data that it thinks might be useful.
      */
     public void learnFrom(List<SARTuple> trajectory) {
-        List<SARTuple> trainingData = HopshackleUtilities.cloneList(trajectory);
-
         List<SARTuple> trajectoriesForValueTraining = new ArrayList();
         if (usePreviousEpochsForValueTraining) {
-            trajectoriesForValueTraining = historicTrajectories;
+            trajectoriesForValueTraining = databank.getAllData();
         } // before we truncate, store the previous data for value training
 
-        int historicTuplesToUse = Math.max(maxTuplesForTraining - trainingData.size(), 0);
-        if (historicTrajectories.size() > historicTuplesToUse) {
-            historicTrajectories = HopshackleUtilities.cloneList(historicTrajectories.subList(0, historicTuplesToUse));
-        }
-        trainingData.addAll(historicTrajectories);
-        Collections.shuffle(trainingData);
+        databank.addData(trajectory);
+
+        List<SARTuple> trainingData = databank.getAllData();
 
         if (!usePreviousEpochsForValueTraining)
             trajectoriesForValueTraining = trainingData;
@@ -282,14 +231,13 @@ public class PolicyReinforce implements Policy {
         for (SARTuple tuple : trainingData) {
             learnPolicyFrom(tuple);
         }
-        historicTrajectories.addAll(trajectory);
     }
 
     private void reportValueDelta(List<SARTuple> trajectory) {
         double totalValueError = 0.0;
         double totalSquaredValueError = 0.0;
         for (SARTuple sarTuple : trajectory) {
-            double value = valueState(sarTuple.state.features);
+            double value = coeffs.valueState(sarTuple.state);
             double reward = sarTuple.reward;
             totalValueError += Math.abs(value - reward);
             totalSquaredValueError += Math.pow(value - reward, 2);
@@ -313,11 +261,11 @@ public class PolicyReinforce implements Policy {
     private double learnFrom(SARTuple tuple, boolean trainValue, boolean trainPolicy) {
         int[] indicesToCoefficientsForAvailableActions = new int[tuple.availableStartActions.size()];
         for (int i = 0; i < indicesToCoefficientsForAvailableActions.length; i++) {
-            indicesToCoefficientsForAvailableActions[i] = getIndexForAction(tuple.availableStartActions.get(i));
+            indicesToCoefficientsForAvailableActions[i] = coeffs.getIndexFor(tuple.availableStartActions.get(i));
         }
         int indexToPDFForAction = tuple.availableStartActions.indexOf(tuple.action);
-        double[] actionPDF = getProbabilityDistributionOverActions(tuple.availableStartActions, tuple.state.features);
-        double baseline = useValueFunctionAsBaseline ? valueState(tuple.state.features) : meanReward;
+        double[] actionPDF = coeffs.getProbabilityDistributionOverActions(tuple.availableStartActions, tuple.state, temperature);
+        double baseline = useValueFunctionAsBaseline ? coeffs.valueState(tuple.state) : meanReward;
         double target = tuple.reward - baseline;
 
         if (fullDebug) {
@@ -334,9 +282,9 @@ public class PolicyReinforce implements Policy {
             double[] delLogPolicy = new double[oldCoeff.length];
 
             if (fullDebug) {
-                oldCoeff[0] = getCoeffFor(0, f);
+                oldCoeff[0] = coeffs.getCoeffFor(0, f);
                 for (int i : indicesToCoefficientsForAvailableActions) {
-                    oldCoeff[i] = getCoeffFor(i, f);
+                    oldCoeff[i] = coeffs.getCoeffFor(i, f);
                 }
             }
 
@@ -354,11 +302,11 @@ public class PolicyReinforce implements Policy {
 
             if (fullDebug) {
                 StringBuilder featureDetails = new StringBuilder(String.format("Feature %d\t Phi = %.3f VTheta = %.3f dLoss = %.3f VTheta' = %.3f\n",
-                        f, tuple.state.getFeature(f), oldCoeff[0], delLogPolicy[0], getCoeffFor(0, f)));
+                        f, tuple.state.getFeature(f), oldCoeff[0], delLogPolicy[0], coeffs.getCoeffFor(0, f)));
                 if (trainPolicy) {
                     for (int i = 1; i < delLogPolicy.length; i++) {
                         featureDetails.append(String.format("\tp(a) = %.3f Theta = %.3f dLogPi = %.3f Theta' = %.3f\n",
-                                actionPDF[i - 1], oldCoeff[i], delLogPolicy[i], getCoeffFor(i, f)));
+                                actionPDF[i - 1], oldCoeff[i], delLogPolicy[i], coeffs.getCoeffFor(i, f)));
                     }
                 }
                 logFile.log(featureDetails.toString());
@@ -369,8 +317,13 @@ public class PolicyReinforce implements Policy {
     }
 
     private void modifyCoeff(int f, int actionIndex, double rate, double target) {
-        double currentValue = getCoeffFor(actionIndex, f);
+        double currentValue = coeffs.getCoeffFor(actionIndex, f);
         double newValue = (1.0 - lambda) * (currentValue + rate * target);
-        coefficients.get(actionIndex).put(f, newValue);
+        coeffs.setCoeffFor(actionIndex, f, newValue);
+    }
+
+    @Override
+    public void learnUntil(ElapsedCpuTimer cpuTimer, int milliSeconds) {
+        return;
     }
 }

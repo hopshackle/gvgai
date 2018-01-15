@@ -90,8 +90,8 @@ public class LearningPlayer extends Player {
             if (response == null || response == "")
                 response = Types.ACTIONS.ACTION_NIL.toString();
 
-            //System.out.println("Received ACTION: " + response + "; ACT (Server) Response time: "
-            //        + elapsedTimer.elapsedMillis() + " ms.");
+     //       System.out.println("Received ACTION: " + response + "; ACT (Server) Response time: "
+      //              + elapsedTimer.elapsedMillis() + " ms.");
 
             if (response.equals("END_OVERSPENT")) {
                 so.currentGameState = Types.GAMESTATES.ABORT_STATE;
