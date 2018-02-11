@@ -19,7 +19,7 @@ public class SARTupleTest {
     public void setup() {
         testData = new LinkedList();
         for (int i = 0; i < 8; i++) {
-            allStates[i] = new State();
+            allStates[i] = new State(null);
         }
         allStates[8] = null;
         for (int i = 0; i < rewardData.length; i++) {

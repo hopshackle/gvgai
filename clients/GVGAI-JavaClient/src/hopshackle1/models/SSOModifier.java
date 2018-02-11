@@ -1,5 +1,6 @@
 package hopshackle1.models;
 
+import hopshackle1.HopshackleUtilities;
 import serialization.*;
 
 import java.util.*;
@@ -9,7 +10,7 @@ public class SSOModifier {
     public static SerializableStateObservation constructEmptySSO() {
         SerializableStateObservation sso = new SerializableStateObservation();
         sso.blockSize = 10;
-        sso.worldDimension = new double[] {100.0, 100.0};
+        sso.worldDimension = new double[]{100.0, 100.0};
         sso.NPCPositions = new Observation[0][0];
         sso.movablePositions = new Observation[0][0];
         sso.immovablePositions = new Observation[0][0];
@@ -85,5 +86,37 @@ public class SSOModifier {
             if (xPlus && yPlus)
                 observationGrid[x + 1][y + 1].add(obs);
         }
+    }
+
+    public static SerializableStateObservation copy(SerializableStateObservation sso) {
+        SerializableStateObservation retValue = new SerializableStateObservation();
+        retValue.gameScore = sso.gameScore;
+        retValue.gameTick = sso.gameTick;
+        retValue.gameWinner = sso.gameWinner;
+        retValue.isGameOver = sso.isGameOver;
+        retValue.worldDimension = Arrays.copyOf(sso.worldDimension, sso.worldDimension.length);
+        retValue.blockSize = sso.blockSize;
+
+        retValue.noOfPlayers = sso.noOfPlayers;
+        retValue.avatarSpeed = sso.avatarSpeed;
+        retValue.avatarOrientation = Arrays.copyOf(sso.avatarOrientation, sso.avatarOrientation.length);
+        retValue.avatarPosition = Arrays.copyOf(sso.avatarPosition, sso.avatarOrientation.length);
+        retValue.avatarLastAction = sso.avatarLastAction;
+        retValue.avatarType = sso.avatarType;
+        retValue.avatarHealthPoints = sso.avatarHealthPoints;
+        retValue.avatarMaxHealthPoints = sso.avatarMaxHealthPoints;
+        retValue.avatarLimitHealthPoints = sso.avatarLimitHealthPoints;
+        retValue.isAvatarAlive = sso.isAvatarAlive;
+        retValue.availableActions = (ArrayList) HopshackleUtilities.cloneList(sso.availableActions);
+        retValue.avatarResources = (HashMap) HopshackleUtilities.cloneMap(sso.avatarResources);
+
+        retValue.observationGrid = HopshackleUtilities.cloneArray(sso.observationGrid);
+        retValue.immovablePositions = HopshackleUtilities.cloneArray(sso.immovablePositions);
+        retValue.movablePositions = HopshackleUtilities.cloneArray(sso.movablePositions);
+        retValue.resourcesPositions = HopshackleUtilities.cloneArray(sso.resourcesPositions);
+        retValue.portalsPositions = HopshackleUtilities.cloneArray(sso.portalsPositions);
+        retValue.fromAvatarSpritesPositions = HopshackleUtilities.cloneArray(sso.fromAvatarSpritesPositions);
+
+        return retValue;
     }
 }

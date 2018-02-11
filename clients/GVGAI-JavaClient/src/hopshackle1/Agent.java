@@ -1,5 +1,6 @@
 package hopshackle1;
 
+import hopshackle1.Policies.*;
 import serialization.*;
 import serialization.Types;
 import utils.ElapsedCpuTimer;
@@ -14,7 +15,7 @@ import java.util.*;
  */
 public class Agent extends utils.AbstractPlayer {
     public int iter_;
-    public State last_state_;
+    public SerializableStateObservation last_state_;
     public Types.ACTIONS last_action_;
     public List<Types.ACTIONS> lastAvailableActions;
     public double last_score_;
@@ -35,7 +36,8 @@ public class Agent extends utils.AbstractPlayer {
     private FeatureSet[] featureSets = {new AvatarMeshFeatureSet(), new GlobalPopulationFeatureSet()};
     private LinkedList<SARTuple> currentTrajectory;
 
-    private Policy policy = new PolicyQLearning(alpha, gamma, lambda, epsilon);
+    private PolicyKernel policyKernel = new PolicyCoeffCoreByAction("QTheta", alpha, gamma, lambda, debug);
+    private Policy policy = new BoltzmannPolicy(policyKernel, 0.1);
 
     /**
      * Public method to be called at the start of the communication. No game has been initialized yet.
@@ -81,19 +83,18 @@ public class Agent extends utils.AbstractPlayer {
      */
     @Override
     public Types.ACTIONS act(SerializableStateObservation sso, ElapsedCpuTimer elapsedTimer) {
-        State state = extractFeature(sso);
         double new_score = sso.gameScore;
         double reward = calculateReward(sso);
 
         if (last_state_ != null) {
-            SARTuple tuple = new SARTuple(last_state_, state, last_action_, lastAvailableActions, sso.availableActions, reward);
+            SARTuple tuple = new SARTuple(last_state_, sso, last_action_, lastAvailableActions, sso.availableActions, reward);
             currentTrajectory.add(tuple);
             if (debug) {
                 logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f", tuple.ref, last_action_, reward));
             }
         }
 
-        Types.ACTIONS action = applyPolicy(sso, state);
+        Types.ACTIONS action = policy.chooseAction(sso.getAvailableActions(), sso);
         if (debug) {
             logFile.log(String.format("Action %s taken with Avatar at %.0f/%.0f", action.toString(), sso.avatarPosition[0], sso.avatarPosition[1]));
         }
@@ -103,7 +104,7 @@ public class Agent extends utils.AbstractPlayer {
         last_score_ = new_score;
         last_action_ = action;
         lastAvailableActions = sso.availableActions;
-        last_state_ = state;
+        last_state_ = sso;
         iter_++;
 
         return action;
@@ -126,7 +127,7 @@ public class Agent extends utils.AbstractPlayer {
 
         // add final state to trajectory
         double reward = calculateReward(sso);
-        SARTuple tuple = new SARTuple(last_state_, new State(), last_action_, lastAvailableActions, new ArrayList(), reward);
+        SARTuple tuple = new SARTuple(last_state_, sso, last_action_, lastAvailableActions, new ArrayList(), reward);
         currentTrajectory.add(tuple);
         if (debug) {
             logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f and final score %.2f", tuple.ref, last_action_, reward, sso.gameScore));
@@ -159,18 +160,6 @@ public class Agent extends utils.AbstractPlayer {
         return current_level_;
     }
 
-    /**
-     * Extract features and create state
-     *
-     * @param sso
-     */
-    public State extractFeature(SerializableStateObservation sso) {
-        State retValue = new State();
-        for (FeatureSet fs : featureSets)
-            fs.describeObservation(sso, retValue);
-        return retValue;
-    }
-
     public double calculateReward(SerializableStateObservation sso) {
         double new_score = sso.gameScore;
         if (sso.isGameOver) {
@@ -188,9 +177,5 @@ public class Agent extends utils.AbstractPlayer {
         // execute a simple run of Policy Learning by gradient descent after updating rewards on trajectory
         SARTuple.chainRewardsBackwards(currentTrajectory, nStepParameter, gamma);
         policy.learnFrom(currentTrajectory);
-    }
-
-    public Types.ACTIONS applyPolicy(SerializableStateObservation sso, State state) {
-        return policy.chooseAction(sso.getAvailableActions(), state);
     }
 }

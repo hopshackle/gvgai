@@ -1,5 +1,8 @@
 package hopshackle1;
 
+import hopshackle1.models.SSOModifier;
+import serialization.SerializableStateObservation;
+
 import java.util.*;
 
 public class State {
@@ -17,8 +20,13 @@ public class State {
         return highestIndex;
     }
 
-    public State () {
+    public State() {
         features = new HashMap();
+    }
+    public State(SerializableStateObservation sso, FeatureSet[] featureSets) {
+        features = new HashMap();
+        for (FeatureSet fs : featureSets)
+            fs.describeObservation(sso, this);
     }
 
     public void setFeature(int f, double v) {

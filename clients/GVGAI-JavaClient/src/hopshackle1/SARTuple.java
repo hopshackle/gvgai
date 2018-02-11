@@ -1,5 +1,7 @@
 package hopshackle1;
 
+import hopshackle1.models.SSOModifier;
+import serialization.SerializableStateObservation;
 import serialization.Types.*;
 
 import java.util.*;
@@ -8,9 +10,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SARTuple {
 
     private static AtomicInteger counter = new AtomicInteger(0);
-    public State state;
-    public State nextState;
-    public State nNextState;
+    public SerializableStateObservation startSSO;
+    public SerializableStateObservation nextSSO;
+    public SerializableStateObservation nNextSSO;
     public ACTIONS action;
     public List<ACTIONS> availableStartActions, availableEndActions, availableNStepActions;
     public double reward;
@@ -19,9 +21,9 @@ public class SARTuple {
     public double mcReward;
     public final int ref;
 
-    public SARTuple(State startState, State nextState, ACTIONS actionChosen, List<ACTIONS> allActionsFromStart, List<ACTIONS> allActionsFromNext, double reward) {
-        this.state = startState;
-        this.nextState = nextState;
+    public SARTuple(SerializableStateObservation startSSO, SerializableStateObservation nextSSO, ACTIONS actionChosen, List<ACTIONS> allActionsFromStart, List<ACTIONS> allActionsFromNext, double reward) {
+        this.startSSO = SSOModifier.copy(startSSO);
+        this.nextSSO = SSOModifier.copy(nextSSO);
         this.action = actionChosen;
         this.reward = reward;
         this.availableStartActions = HopshackleUtilities.cloneList(allActionsFromStart);
@@ -42,7 +44,7 @@ public class SARTuple {
 
         double mcReward = 0.0;
         double[] nSteps = new double[nStepReward];
-        State[] nStates = new State[nStepReward];
+        SerializableStateObservation[] nStates = new SerializableStateObservation[nStepReward];
         List<ACTIONS>[] nActions = new List[nStepReward];
         int currentIndex = 0;
         double runningRewardSum = 0.0;
@@ -61,11 +63,11 @@ public class SARTuple {
             runningRewardSum = gamma * runningRewardSum + previous.reward;
 
             nSteps[currentIndex] = previous.reward;
-            nStates[currentIndex] = previous.nextState;
+            nStates[currentIndex] = previous.nextSSO;
             nActions[currentIndex] = previous.availableEndActions;
 
             previous.nStepReward = runningRewardSum;
-            previous.nNextState = nStates[nextIndex];
+            previous.nNextSSO = nStates[nextIndex];
             previous.availableNStepActions = nActions[nextIndex] != null ? nActions[nextIndex] : new ArrayList();
 
             // subtract the amount that falls off the end (has been discounted n-1 times since its addition

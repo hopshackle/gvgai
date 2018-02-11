@@ -1,14 +1,15 @@
-package hopshackle1;
+package hopshackle1.Policies;
 
 import java.util.*;
 
+import hopshackle1.*;
 import serialization.Types.*;
 import utils.ElapsedCpuTimer;
 
 public class PolicyReinforce implements Policy {
 
     private Random rdm = new Random(45);
-    private PolicyCoeffCore coeffs;
+    private PolicyCoeffCoreByAction coeffs;
     private double alpha, lambda;
     private double epsilon = 0.05;
     private boolean debug = true;
@@ -30,7 +31,7 @@ public class PolicyReinforce implements Policy {
     public PolicyReinforce(double learningRate, double regularisation) {
         alpha = learningRate;
         lambda = regularisation;
-        coeffs = new PolicyCoeffCore("REINFORCE", debug);
+        coeffs = new PolicyCoeffCoreByAction("REINFORCE", debug);
     }
 
     public ACTIONS chooseAction(List<ACTIONS> actions, State state) {
@@ -167,6 +168,7 @@ public class PolicyReinforce implements Policy {
     /*
     Only pass in *new* trajectory data. Policy will maintain old trajectory data that it thinks might be useful.
      */
+    @Override
     public void learnFrom(List<SARTuple> trajectory) {
         List<SARTuple> trajectoriesForValueTraining = new ArrayList();
         if (usePreviousEpochsForValueTraining) {

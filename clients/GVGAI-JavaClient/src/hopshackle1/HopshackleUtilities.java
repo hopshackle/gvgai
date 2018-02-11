@@ -26,6 +26,29 @@ public class HopshackleUtilities {
         return retValue;
     }
 
+    public static <T> T[][] cloneArray(T[][] arrayToClone) {
+        T[][] retValue = Arrays.copyOf(arrayToClone, arrayToClone.length);
+        for (int i = 0; i < arrayToClone.length; i++) {
+            if (arrayToClone[i] != null)
+                retValue[i] = Arrays.copyOf(arrayToClone[i], arrayToClone[i].length);
+        }
+        return retValue;
+    }
+
+    public static <T> T[][][] cloneArray(T[][][] arrayToClone) {
+        T[][][] retValue = Arrays.copyOf(arrayToClone, arrayToClone.length);
+        for (int i = 0; i < arrayToClone.length; i++) {
+            if (arrayToClone[i] != null) {
+                retValue[i] = Arrays.copyOf(arrayToClone[i], arrayToClone[i].length);
+                for (int j = 0; j < arrayToClone[i].length; j++) {
+                    if (arrayToClone[i][j] != null)
+                        retValue[i][j] = Arrays.copyOf(arrayToClone[i][j], arrayToClone[i][j].length);
+                }
+            }
+        }
+        return retValue;
+    }
+
     public static <T> List<T> listFromInstance(T instance) {
         List<T> retList = new ArrayList<T>();
         if (instance != null) retList.add(instance);
@@ -52,7 +75,7 @@ public class HopshackleUtilities {
 
             String nStr;
             nStr = br.readLine();
-            while (nStr!=null) {
+            while (nStr != null) {
                 retList.add(nStr);
                 nStr = br.readLine();
             }
@@ -108,7 +131,7 @@ public class HopshackleUtilities {
                 logger.severe(e.toString() + " in HopshackleUtilities.loadEnums");
             }
             if (aeClass != null)
-                for (Object ae : EnumSet.allOf(aeClass))  {
+                for (Object ae : EnumSet.allOf(aeClass)) {
                     retList.add(ae);
                 }
         }
@@ -194,7 +217,7 @@ public class HopshackleUtilities {
                 }
             }
         }
-        return array[k-1];
+        return array[k - 1];
     }
 
     public static <A extends Comparable> A findKthValueIn(A[] inputArray, int k) {
