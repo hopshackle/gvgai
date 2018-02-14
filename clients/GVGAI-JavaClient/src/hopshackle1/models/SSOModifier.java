@@ -18,6 +18,10 @@ public class SSOModifier {
         sso.resourcesPositions = new Observation[0][0];
         sso.portalsPositions = new Observation[0][0];
         sso.avatarPosition = new double[2];
+        sso.avatarOrientation = new double[0];
+        sso.avatarResources = new HashMap();
+
+        constructGrid(sso);
         return sso;
     }
 

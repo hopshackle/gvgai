@@ -3,26 +3,28 @@ package hopshackle1.Policies;
 import java.util.*;
 
 import hopshackle1.*;
+import hopshackle1.RL.ActionValue;
+import hopshackle1.RL.ActionValueFunctionApproximator;
+import serialization.SerializableStateObservation;
 import serialization.Types;
-import utils.ElapsedCpuTimer;
 
 public class EpsilonGreedyPolicy implements Policy {
 
     private double epsilon;
     private Random rnd = new Random(56);
     private boolean debug = false;
-    private PolicyKernel theta;
+    private ActionValueFunctionApproximator theta;
     private EntityLog logFile;
     ;
 
-    public EpsilonGreedyPolicy(PolicyKernel kernel, double exploration) {
+    public EpsilonGreedyPolicy(ActionValueFunctionApproximator kernel, double exploration) {
         epsilon = exploration;
         theta = kernel;
         if (debug) logFile = new EntityLog("EpsilonGreedy");
     }
 
     @Override
-    public Types.ACTIONS chooseAction(List<Types.ACTIONS> availableActions, State state) {
+    public Types.ACTIONS chooseAction(List<Types.ACTIONS> availableActions, SerializableStateObservation sso) {
         ActionValue choice = null;
 
         if (rnd.nextDouble() < epsilon) {
@@ -31,7 +33,7 @@ public class EpsilonGreedyPolicy implements Policy {
                 logFile.log(String.format("Chooses %s with random exploration", choice.toString()));
             return actionChosen;
         }
-        choice = theta.valueOfBestAction(state, availableActions);
+        choice = theta.valueOfBestAction(sso, availableActions);
         if (debug) {
             logFile.log(String.format("Chooses %s greedily", choice.action.toString()));
             logFile.flush();

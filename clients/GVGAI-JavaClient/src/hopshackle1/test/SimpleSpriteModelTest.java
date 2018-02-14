@@ -1,6 +1,5 @@
 package hopshackle1.test;
 
-import hopshackle1.HopshackleUtilities;
 import org.javatuples.*;
 import org.junit.*;
 

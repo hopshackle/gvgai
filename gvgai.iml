@@ -14,7 +14,7 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="junit-4.12" level="project" />
-    <orderEntry type="library" name="simulation lbraries" level="application" />
+    <orderEntry type="library" name="CoreSimulation" level="application" />
+    <orderEntry type="library" name="junit-4.12" level="application" />
   </component>
 </module>

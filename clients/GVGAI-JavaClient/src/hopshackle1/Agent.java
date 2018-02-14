@@ -1,6 +1,7 @@
 package hopshackle1;
 
 import hopshackle1.Policies.*;
+import hopshackle1.RL.*;
 import serialization.*;
 import serialization.Types;
 import utils.ElapsedCpuTimer;
@@ -26,18 +27,16 @@ public class Agent extends utils.AbstractPlayer {
     public double gamma = 0.95;
     public double alpha = 0.001;
     public double lambda = 0.0001;
-    public double epsilon = 0.10;
-    private int nStepParameter = 1;
     private double gameWinBonus = 100.0;
-
     private EntityLog logFile;
     private boolean debug = false;
-
-    private FeatureSet[] featureSets = {new AvatarMeshFeatureSet(), new GlobalPopulationFeatureSet()};
+    private ActionValueFunctionApproximator QFunction;
+    private RLTargetCalculator rewardCalculator;
+    private ReinforcementLearningAlgorithm rl;
+    private List<FeatureSet> featureSets = new ArrayList();
     private LinkedList<SARTuple> currentTrajectory;
-
-    private PolicyKernel policyKernel = new PolicyCoeffCoreByAction("QTheta", alpha, gamma, lambda, debug);
-    private Policy policy = new BoltzmannPolicy(policyKernel, 0.1);
+    private Policy policy;
+    private TupleDataBank databank = new TupleDataBank(1000);
 
     /**
      * Public method to be called at the start of the communication. No game has been initialized yet.
@@ -54,6 +53,14 @@ public class Agent extends utils.AbstractPlayer {
         this.current_level_ = 0;
         this.game_plays_ = 0;
         if (debug) logFile = new EntityLog("Hopshackle1");
+
+        featureSets.add(new AvatarMeshFeatureSet());
+        featureSets.add(new GlobalPopulationFeatureSet());
+
+        QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
+        rewardCalculator = new QLearning(1, alpha, gamma, lambda, QFunction);
+        policy = new BoltzmannPolicy(QFunction, 0.1);
+        rl = (QLearning) rewardCalculator;
     }
 
 
@@ -99,7 +106,18 @@ public class Agent extends utils.AbstractPlayer {
             logFile.log(String.format("Action %s taken with Avatar at %.0f/%.0f", action.toString(), sso.avatarPosition[0], sso.avatarPosition[1]));
         }
 
-        policy.learnUntil(elapsedTimer, 30);
+        Trainable thingToTrain = null;
+        if (QFunction instanceof Trainable)
+            thingToTrain = (Trainable) QFunction;
+        else if (policy instanceof Trainable)
+            thingToTrain = (Trainable) policy;
+
+        int remainingTime = (int) elapsedTimer.remainingTimeMillis();
+        if (thingToTrain != null) {
+            databank.teach(thingToTrain, remainingTime - 10, rl);
+        } else {
+            logFile.log("Nothing to train....");
+        }
 
         last_score_ = new_score;
         last_action_ = action;
@@ -145,7 +163,7 @@ public class Agent extends utils.AbstractPlayer {
 
         long start = elapsedTimer.elapsed();
 
-        doLearnin();
+        processNewTrajectory();
 
         long end = elapsedTimer.elapsed();
 
@@ -173,9 +191,9 @@ public class Agent extends utils.AbstractPlayer {
     }
 
 
-    public void doLearnin() {
+    public void processNewTrajectory() {
         // execute a simple run of Policy Learning by gradient descent after updating rewards on trajectory
-        SARTuple.chainRewardsBackwards(currentTrajectory, nStepParameter, gamma);
-        policy.learnFrom(currentTrajectory);
+        RLTargetCalculator.processRewardsWith(currentTrajectory, rewardCalculator);
+        databank.addData(currentTrajectory);
     }
 }

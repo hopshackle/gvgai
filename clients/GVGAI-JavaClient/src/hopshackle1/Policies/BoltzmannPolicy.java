@@ -1,6 +1,9 @@
 package hopshackle1.Policies;
 
 import hopshackle1.*;
+import hopshackle1.RL.ActionValue;
+import hopshackle1.RL.ActionValueFunctionApproximator;
+import serialization.SerializableStateObservation;
 import serialization.Types.*;
 
 import java.util.*;
@@ -8,22 +11,22 @@ import java.util.*;
 public class BoltzmannPolicy implements Policy {
 
     private double temperature;
-    private PolicyKernel theta;
+    private ActionValueFunctionApproximator theta;
     private boolean debug = false;
     private EntityLog logFile;
     private Random rnd = new Random(45);
 
-    public BoltzmannPolicy(PolicyKernel kernel, double temperature) {
+    public BoltzmannPolicy(ActionValueFunctionApproximator kernel, double temperature) {
         this.temperature = temperature;
         theta = kernel;
         if (debug) logFile = new EntityLog("Boltzmann");
     }
 
-    public double[] pdfOver(State state, List<ACTIONS> actions) {
+    public double[] pdfOver(SerializableStateObservation sso, List<ACTIONS> actions) {
         double[] retValue = new double[actions.size()];
         int count = 0;
         for (ACTIONS a : actions) {
-            retValue[count] = theta.value(state, a);
+            retValue[count] = theta.value(sso, a);
             retValue[count] /= temperature;
             count++;
         }
@@ -32,10 +35,10 @@ public class BoltzmannPolicy implements Policy {
     }
 
     @Override
-    public ACTIONS chooseAction(List<ACTIONS> availableActions, State state) {
+    public ACTIONS chooseAction(List<ACTIONS> availableActions, SerializableStateObservation sso) {
         ActionValue choice = null;
 
-        double[] pdf = pdfOver(state, availableActions);
+        double[] pdf = pdfOver(sso, availableActions);
         double roll = rnd.nextDouble();
         if (debug) {
             logFile.log("PDF for actions is:");
