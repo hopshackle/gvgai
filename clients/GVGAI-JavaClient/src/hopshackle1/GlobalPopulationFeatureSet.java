@@ -11,6 +11,7 @@ public class GlobalPopulationFeatureSet implements  FeatureSet {
         extractFeaturesFrom(retValue, obs.getImmovablePositions());
         extractFeaturesFrom(retValue, obs.getPortalsPositions());
         extractFeaturesFrom(retValue, obs.getResourcesPositions());
+        extractFeaturesFrom(retValue, obs.getFromAvatarSpritesPositions());
     }
 
     public void extractFeaturesFrom(State base, Observation[][] obs) {

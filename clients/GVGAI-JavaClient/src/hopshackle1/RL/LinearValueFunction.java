@@ -170,4 +170,11 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
             underlying.setCoeffFor(0, feature, regressedWeights[i]);
         }
     }
+
+    public void setCoeffFor(int feature, double weight) {
+        underlying.setCoeffFor(0, feature, weight);
+    }
+    public double getCoeffFor(int feature) {
+        return underlying.getCoeffFor(0, feature);
+    }
 }

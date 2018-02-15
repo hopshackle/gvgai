@@ -108,7 +108,8 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
 
     @Override
     public double value(SerializableStateObservation sso, ACTIONS action) {
-        return value(sso, action);
+        State state = calculateState(sso);
+        return value(state, action);
     }
 
     private double value(State state, ACTIONS action) {

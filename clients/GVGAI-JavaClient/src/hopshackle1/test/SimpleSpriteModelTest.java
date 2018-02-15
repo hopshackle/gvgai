@@ -4,7 +4,6 @@ import org.javatuples.*;
 import org.junit.*;
 
 import static org.junit.Assert.*;
-
 import hopshackle1.models.*;
 import serialization.*;
 
@@ -225,13 +224,8 @@ public class SimpleSpriteModelTest {
         assertEquals(sso.observationGrid[6][8].length, 0);
     }
 
-    public static Observation createNPCObservation(int id, int category, int type, double x, double y) {
-        Observation retValue = new Observation();
-        retValue.category = category;
-        retValue.obsID = id;
-        retValue.itype = type;
-        Vector2d position = new Vector2d(x, y);
-        retValue.position = position;
-        return retValue;
+    private Observation createNPCObservation(int id, int category, int type, double x, double y) {
+        return SSOModifier.createNPCObservation(id, category, type, x, y);
     }
+
 }

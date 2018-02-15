@@ -120,7 +120,18 @@ public class SSOModifier {
         retValue.resourcesPositions = HopshackleUtilities.cloneArray(sso.resourcesPositions);
         retValue.portalsPositions = HopshackleUtilities.cloneArray(sso.portalsPositions);
         retValue.fromAvatarSpritesPositions = HopshackleUtilities.cloneArray(sso.fromAvatarSpritesPositions);
+        retValue.NPCPositions = HopshackleUtilities.cloneArray(sso.NPCPositions);
 
+        return retValue;
+    }
+
+    public static Observation createNPCObservation(int id, int category, int type, double x, double y) {
+        Observation retValue = new Observation();
+        retValue.category = category;
+        retValue.obsID = id;
+        retValue.itype = type;
+        Vector2d position = new Vector2d(x, y);
+        retValue.position = position;
         return retValue;
     }
 }
