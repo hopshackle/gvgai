@@ -1,6 +1,7 @@
 package hopshackle1.models;
 
 import serialization.*;
+import serialization.Types.*;
 import org.javatuples.*;
 import java.util.*;
 
@@ -28,21 +29,21 @@ public interface BehaviourModel {
     Apply the BehaviourModel to predict the next State of the whole system
     This does not construct the Observation grid ... we leave that to be called after all BehaviourModels have been applied
      */
-    public void apply(SerializableStateObservation sso);
+    public void apply(SerializableStateObservation sso, ACTIONS avatarMove);
 
     /*
     Returns the new position of the specified sprite. This uses the MAP estimate, i.e. the mode of the distribution
      */
-    public Vector2d nextMoveMAP(int objID);
+    public Vector2d nextMoveMAP(int objID, ACTIONS move);
 
     /*
     Returns the new position of the specified sprite. This samples a single possibility from the distribution.
      */
-    public Vector2d nextMoveRandom(int objID);
+    public Vector2d nextMoveRandom(int objID, ACTIONS move);
 
     /* Returns a psdf (well, pmf) over all possible moves the model thinks exist
 
      */
-    public List<Pair<Double, Vector2d>> nextMovePdf(int objID);
+    public List<Pair<Double, Vector2d>> nextMovePdf(int objID, ACTIONS move);
 
 }

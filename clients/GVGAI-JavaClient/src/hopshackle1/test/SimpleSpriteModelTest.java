@@ -22,17 +22,17 @@ public class SimpleSpriteModelTest {
     @Test
     public void correctStatisticsBeforeAnyData() {
         model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 45, 50));
-        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6);
+        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6, null);
         assertEquals(pdf.size(), 1);
         assertEquals(pdf.get(0).getValue0(), 1.00, 0.001);
         assertEquals(pdf.get(0).getValue1().x, 45.0, 0.001);
         assertEquals(pdf.get(0).getValue1().y, 50.0, 0.001);
 
-        Vector2d move = model.nextMoveMAP(6);
+        Vector2d move = model.nextMoveMAP(6, null);
         assertEquals(move.x, 45.0, 0.001);
         assertEquals(move.y, 50.0, 0.001);
 
-        move = model.nextMoveRandom(6);
+        move = model.nextMoveRandom(6, null);
         assertEquals(move.x, 45.0, 0.001);
         assertEquals(move.y, 50.0, 0.001);
     }
@@ -46,7 +46,7 @@ public class SimpleSpriteModelTest {
         // that should be S (4), SE (3), Stationary (-)
         // direction changes of 0, 7, Static
 
-        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6);
+        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6, null);
         assertEquals(pdf.size(), 3);        // static, move forward, turn half-left
         assertEquals(pdf.get(0).getValue0(), 6.0 / 8.0, 0.001); // stasis
         assertEquals(pdf.get(0).getValue1().x, 48.0, 0.001);
@@ -60,7 +60,7 @@ public class SimpleSpriteModelTest {
         assertEquals(pdf.get(2).getValue1().x, 53.0, 0.001);
         assertEquals(pdf.get(2).getValue1().y, 58.0, 0.001);
 
-        Vector2d mapMove = model.nextMoveMAP(6);
+        Vector2d mapMove = model.nextMoveMAP(6, null);
         assertEquals(mapMove.x, 48.0, 0.001);
         assertEquals(mapMove.y, 58.0, 0.001);
     }
@@ -76,7 +76,7 @@ public class SimpleSpriteModelTest {
         // that should be S (4), SE (3), Stationary (-), E (2), SW (5)
         // direction changes of 0, 7, Static, 7, 3
 
-        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6);
+        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6, null);
         assertEquals(pdf.size(), 4);        // static, straightOn, hardRight, softLeft
         assertEquals(pdf.get(0).getValue0(), 0.6, 0.001); // stasis
         assertEquals(pdf.get(0).getValue1().x, 50.0, 0.001);
@@ -96,7 +96,7 @@ public class SimpleSpriteModelTest {
 
         int stationary = 0, hardRight = 0, softLeft = 0, straightOn = 0;
         for (int i = 0; i < 1000; i++) {
-            Vector2d m = model.nextMoveRandom(6);
+            Vector2d m = model.nextMoveRandom(6, null);
             double x = m.x;
             double y = m.y;
             if (x < 50.1 && x > 49.9 && y < 62.1 && y > 61.9) stationary++;
@@ -169,7 +169,7 @@ public class SimpleSpriteModelTest {
         turnRight.updateModelStatistics(sso);
         stayStill.updateModelStatistics(sso);
         // no direction yet established
-        model.apply(sso); // should be no change
+        model.apply(sso, null); // should be no change
         assertEquals(sso.NPCPositions[0][0].position.x, 50.0, 0.001);
         assertEquals(sso.NPCPositions[0][0].position.y, 50.0, 0.001);
         assertEquals(sso.NPCPositions[1][0].position.x, 25.0, 0.001);
@@ -183,9 +183,9 @@ public class SimpleSpriteModelTest {
         turnRight.updateModelStatistics(sso);
         stayStill.updateModelStatistics(sso);
 
-        model.apply(sso); // should now continue in same direction
-        turnRight.apply(sso);
-        stayStill.apply(sso);
+        model.apply(sso, null); // should now continue in same direction
+        turnRight.apply(sso, null);
+        stayStill.apply(sso, null);
         assertEquals(sso.NPCPositions[0][0].position.x, 50.0, 0.001);
         assertEquals(sso.NPCPositions[0][0].position.y, 70.0, 0.001);
         assertEquals(sso.NPCPositions[1][0].position.x, 5.0, 0.001);

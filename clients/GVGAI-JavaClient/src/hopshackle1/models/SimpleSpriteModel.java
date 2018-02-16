@@ -57,7 +57,7 @@ public class SimpleSpriteModel implements BehaviourModel {
     }
 
     @Override
-    public void apply(SerializableStateObservation sso) {
+    public void apply(SerializableStateObservation sso, Types.ACTIONS avatarMove) {
         // we need to update the position of each sprite type that we model
 
         // statistics are maintained on the basis that we see a sequence of frames from the same game
@@ -68,17 +68,17 @@ public class SimpleSpriteModel implements BehaviourModel {
         // update their statistics and histories.
         // A central problem is that the SSO does not include a record of the last direction moved, which we need
 
-        updateObservations(sso.getNPCPositions());
-        updateObservations(sso.getMovablePositions());
-        updateObservations(sso.getFromAvatarSpritesPositions());
+        updateObservations(sso.getNPCPositions(), avatarMove);
+        updateObservations(sso.getMovablePositions(), avatarMove);
+        updateObservations(sso.getFromAvatarSpritesPositions(), avatarMove);
     }
 
-    private void updateObservations(Observation[][] observations) {
+    private void updateObservations(Observation[][] observations, Types.ACTIONS move) {
         for (Observation[] npc : observations) {
             for (Observation obs : npc) {
                 if (obs.itype == spriteType && lastDirection.containsKey(obs.obsID)) {
                     // one of ours
-                    Vector2d newPos = nextMoveRandom(obs.obsID);
+                    Vector2d newPos = nextMoveRandom(obs.obsID, move);
                     obs.position = newPos;
                 }
             }
@@ -87,10 +87,10 @@ public class SimpleSpriteModel implements BehaviourModel {
 
 
     @Override
-    public Vector2d nextMoveMAP(int objID) {
+    public Vector2d nextMoveMAP(int objID, Types.ACTIONS move) {
         Vector2d retValue = null;
         double maximum = 0.0;
-        for (Pair<Double, Vector2d> option : nextMovePdf(objID)) {
+        for (Pair<Double, Vector2d> option : nextMovePdf(objID, move)) {
             if (option.getValue0() > maximum) {
                 maximum = option.getValue0();
                 retValue = option.getValue1();
@@ -100,9 +100,9 @@ public class SimpleSpriteModel implements BehaviourModel {
     }
 
     @Override
-    public Vector2d nextMoveRandom(int objID) {
+    public Vector2d nextMoveRandom(int objID, Types.ACTIONS move) {
         double roll = rnd.nextDouble();
-        for (Pair<Double, Vector2d> option : nextMovePdf(objID)) {
+        for (Pair<Double, Vector2d> option : nextMovePdf(objID, move)) {
             roll -= option.getValue0();
             if (roll <= 0.0) {
                 return option.getValue1();
@@ -112,7 +112,7 @@ public class SimpleSpriteModel implements BehaviourModel {
     }
 
     @Override
-    public List<Pair<Double, Vector2d>> nextMovePdf(int objID) {
+    public List<Pair<Double, Vector2d>> nextMovePdf(int objID, Types.ACTIONS move) {
         int heading = lastDirection.getOrDefault(objID, 0);
         List<Pair<Double, Vector2d>> retValue = new ArrayList();
         // first the possibility of not moving

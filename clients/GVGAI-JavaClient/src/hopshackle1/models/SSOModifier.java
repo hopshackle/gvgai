@@ -33,6 +33,8 @@ public class SSOModifier {
         addAllObsToList(sso.getNPCPositions(), allExtantObs);
         addAllObsToList(sso.getPortalsPositions(), allExtantObs);
         addAllObsToList(sso.getFromAvatarSpritesPositions(), allExtantObs);
+        Observation avatarObs = createNPCObservation(0, 0,sso.avatarType, sso.avatarPosition[0], sso.avatarPosition[1]);
+        allExtantObs.add(avatarObs);
 
         List<Observation>[][] wipObsGrid = new ArrayList[(int) (sso.worldDimension[0] / sso.blockSize)][(int) (sso.worldDimension[1] / sso.blockSize)];
         // we need to construct a temporary grid that we can then update
@@ -104,7 +106,7 @@ public class SSOModifier {
         retValue.noOfPlayers = sso.noOfPlayers;
         retValue.avatarSpeed = sso.avatarSpeed;
         retValue.avatarOrientation = Arrays.copyOf(sso.avatarOrientation, sso.avatarOrientation.length);
-        retValue.avatarPosition = Arrays.copyOf(sso.avatarPosition, sso.avatarOrientation.length);
+        retValue.avatarPosition = Arrays.copyOf(sso.avatarPosition, sso.avatarPosition.length);
         retValue.avatarLastAction = sso.avatarLastAction;
         retValue.avatarType = sso.avatarType;
         retValue.avatarHealthPoints = sso.avatarHealthPoints;
