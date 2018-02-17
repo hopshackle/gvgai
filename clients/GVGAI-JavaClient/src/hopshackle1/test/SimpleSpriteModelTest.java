@@ -155,6 +155,7 @@ public class SimpleSpriteModelTest {
         sso.movablePositions[0][0] = createNPCObservation(20, 6, 2, 20, 20);
         sso.fromAvatarSpritesPositions = new Observation[1][1];
         sso.fromAvatarSpritesPositions[0][0] = createNPCObservation(60, 6, 6, 0, 20);
+        sso.avatarPosition = new double[] {50, 80};
 
         model = new SimpleSpriteModel(10, new int[]{5, 0, 0, 0, 0, 0, 0, 0},0);
         BehaviourModel turnRight = new SimpleSpriteModel(10, new int[]{0, 500, 0, 0, 0, 0, 0, 0}, 0);
@@ -218,14 +219,14 @@ public class SimpleSpriteModelTest {
         assertEquals(sso.observationGrid[4][7].length, 0);
         assertEquals(sso.observationGrid[4][8].length, 0);
         assertEquals(sso.observationGrid[5][6].length, 0);
-        assertEquals(sso.observationGrid[5][8].length, 0);
+        assertEquals(sso.observationGrid[5][8].length, 1);
         assertEquals(sso.observationGrid[6][6].length, 0);
         assertEquals(sso.observationGrid[6][7].length, 0);
         assertEquals(sso.observationGrid[6][8].length, 0);
     }
 
     private Observation createNPCObservation(int id, int category, int type, double x, double y) {
-        return SSOModifier.createNPCObservation(id, category, type, x, y);
+        return SSOModifier.createObservation(id, category, type, x, y);
     }
 
 }

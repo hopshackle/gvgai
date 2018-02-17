@@ -26,6 +26,15 @@ public class HopshackleUtilities {
         return retValue;
     }
 
+    public static <T> T[][] cloneAndAddRows(T[][] arrayToClone, int rowsToAdd) {
+        T[][] retValue = Arrays.copyOf(arrayToClone, arrayToClone.length + rowsToAdd);
+        for (int i = 0; i < arrayToClone.length; i++) {
+            if (arrayToClone[i] != null)
+                retValue[i] = Arrays.copyOf(arrayToClone[i], arrayToClone[i].length);
+        }
+        return retValue;
+    }
+
     public static <T> T[][] cloneArray(T[][] arrayToClone) {
         T[][] retValue = Arrays.copyOf(arrayToClone, arrayToClone.length);
         for (int i = 0; i < arrayToClone.length; i++) {

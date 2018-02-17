@@ -79,6 +79,19 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
         if (avatarModel == null) {
             avatarModel = new SimpleAvatarModel(sso.blockSize);
             spriteTypeToModel.put(sso.avatarType, avatarModel);
+            IDToSpriteType.put(0, sso.avatarType);
+            // There is no record of the Avatar ID in SSO, other than in Observation Grid.
+            // For testing we always use an ID of 0 (or when we construct/roll forward any new SSO
+            /*
+            for (int i = 0; i < sso.observationGrid.length; i++) {
+                for (int j = 0; j < sso.observationGrid[i].length; j++) {
+                    for (int k = 0; k < sso.observationGrid[i][j].length ; k++) {
+                        if (sso.observationGrid[i][j][k] != null && sso.observationGrid[i][j][k].itype == sso.avatarType) {
+                            IDToSpriteType.put(sso.observationGrid[i][j][k].obsID, sso.avatarType);
+                        }
+                    }
+                }
+            } */
         }
         checkForNewSpriteTypesIn(sso.NPCPositions);
         checkForNewSpriteTypesIn(sso.movablePositions);

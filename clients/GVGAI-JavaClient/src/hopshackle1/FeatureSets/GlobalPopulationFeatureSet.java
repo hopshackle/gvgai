@@ -1,9 +1,11 @@
-package hopshackle1;
+package hopshackle1.FeatureSets;
 
+import hopshackle1.FeatureSets.FeatureSet;
+import hopshackle1.State;
 import serialization.Observation;
 import serialization.SerializableStateObservation;
 
-public class GlobalPopulationFeatureSet implements  FeatureSet {
+public class GlobalPopulationFeatureSet implements FeatureSet {
 
     public void describeObservation(SerializableStateObservation obs, State retValue) {
         extractFeaturesFrom(retValue, obs.getNPCPositions());

@@ -29,11 +29,11 @@ public class SSOModifier {
 
         List<Observation> allExtantObs = new ArrayList();
         addAllObsToList(sso.getImmovablePositions(), allExtantObs);
-        addAllObsToList(sso.getImmovablePositions(), allExtantObs);
+        addAllObsToList(sso.getMovablePositions(), allExtantObs);
         addAllObsToList(sso.getNPCPositions(), allExtantObs);
         addAllObsToList(sso.getPortalsPositions(), allExtantObs);
         addAllObsToList(sso.getFromAvatarSpritesPositions(), allExtantObs);
-        Observation avatarObs = createNPCObservation(0, 0,sso.avatarType, sso.avatarPosition[0], sso.avatarPosition[1]);
+        Observation avatarObs = createObservation(0, 0,sso.avatarType, sso.avatarPosition[0], sso.avatarPosition[1]);
         allExtantObs.add(avatarObs);
 
         List<Observation>[][] wipObsGrid = new ArrayList[(int) (sso.worldDimension[0] / sso.blockSize)][(int) (sso.worldDimension[1] / sso.blockSize)];
@@ -127,7 +127,62 @@ public class SSOModifier {
         return retValue;
     }
 
-    public static Observation createNPCObservation(int id, int category, int type, double x, double y) {
+    /*
+    This adds a sprite to the relevant Observation[][] array, but does not update the ObservationGrid
+    To do that call SSOModifier.constructGrid once all required Sprites have been added
+    In addition, this function does not check for any duplicates on id - it assumes that the sprite is brand new
+     */
+    public static void addSprite(int id, int category, int type, double x, double y, SerializableStateObservation sso) {
+        if (category == TYPE_AVATAR) {
+            sso.avatarPosition[0] = x;
+            sso.avatarPosition[1] = y;
+            sso.avatarType = type;
+        } else {
+            Observation[][] obsArray = getObsArrayForCategory(category, sso);
+            Observation obs = createObservation(id, category, type, x, y);
+            int rowForSpriteType = -1;
+            for (int i = 0; i < obsArray.length; i++) {
+                if (obsArray[i].length > 0 && obsArray[i][0].itype == type)
+                    rowForSpriteType = i;
+            }
+            if (rowForSpriteType == -1) {
+                // need to add one. This also means that we need to update the sso
+                Observation[] newRow = new Observation[1];
+                Observation[][] newObsArray = HopshackleUtilities.cloneAndAddRows(obsArray, 1);
+                newObsArray[obsArray.length] = newRow;
+                newRow[0] = obs;
+                obsArray = newObsArray;
+            } else {
+                // we have a row, we just need to add new Observation to the end
+                Observation[] newRow = Arrays.copyOf(obsArray[rowForSpriteType], obsArray[rowForSpriteType].length + 1);
+                obsArray[rowForSpriteType] = newRow;
+                newRow[newRow.length - 1] = obs;
+            }
+            setObsArrayForCategory(category, sso, obsArray);
+        }
+    }
+
+    public static void moveSprite(int id, int category, double x, double y, SerializableStateObservation sso) {
+        if (category == TYPE_AVATAR) {
+            sso.avatarPosition[0] = x;
+            sso.avatarPosition[1] = y;
+            return;
+        } else {
+            Observation[][] obsArray = getObsArrayForCategory(category, sso);
+            for (int i = 0; i < obsArray.length; i++) {
+                for (int j = 0; j < obsArray[i].length; j++) {
+                    if (obsArray[i][j] != null && obsArray[i][j].obsID == id) {
+                        Observation currentObs = obsArray[i][j];
+                        obsArray[i][j] = createObservation(id, category, currentObs.itype, x, y);
+                        return;
+                    }
+                }
+            }
+        }
+        throw new AssertionError(String.format("Sprite %d of category %d not found", id, category));
+    }
+
+    public static Observation createObservation(int id, int category, int type, double x, double y) {
         Observation retValue = new Observation();
         retValue.category = category;
         retValue.obsID = id;
@@ -135,5 +190,60 @@ public class SSOModifier {
         Vector2d position = new Vector2d(x, y);
         retValue.position = position;
         return retValue;
+    }
+
+    public static final int TYPE_AVATAR = 0;
+    public static final int TYPE_RESOURCE = 1;
+    public static final int TYPE_PORTAL = 2;
+    public static final int TYPE_NPC = 3;
+    public static final int TYPE_STATIC = 4;
+    public static final int TYPE_FROMAVATAR = 5;
+    public static final int TYPE_MOVABLE = 6;
+
+    private static Observation[][] getObsArrayForCategory(int category, SerializableStateObservation sso) {
+        Observation[][] obsArray = new Observation[1][1];
+        switch (category) {
+            case TYPE_RESOURCE:
+                obsArray = sso.resourcesPositions;
+                break;
+            case TYPE_PORTAL:
+                obsArray = sso.portalsPositions;
+                break;
+            case TYPE_NPC:
+                obsArray = sso.NPCPositions;
+                break;
+            case TYPE_STATIC:
+                obsArray = sso.immovablePositions;
+                break;
+            case TYPE_FROMAVATAR:
+                obsArray = sso.fromAvatarSpritesPositions;
+                break;
+            case TYPE_MOVABLE:
+                obsArray = sso.movablePositions;
+                break;
+        }
+        return obsArray;
+    }
+    private static void setObsArrayForCategory(int category, SerializableStateObservation sso, Observation[][] obsArray) {
+        switch (category) {
+            case TYPE_RESOURCE:
+                sso.resourcesPositions = obsArray;
+                break;
+            case TYPE_PORTAL:
+                sso.portalsPositions = obsArray;
+                break;
+            case TYPE_NPC:
+                sso.NPCPositions = obsArray;
+                break;
+            case TYPE_STATIC:
+                sso.immovablePositions = obsArray;
+                break;
+            case TYPE_FROMAVATAR:
+                sso.fromAvatarSpritesPositions = obsArray;
+                break;
+            case TYPE_MOVABLE:
+                sso.movablePositions = obsArray;
+                break;
+        }
     }
 }

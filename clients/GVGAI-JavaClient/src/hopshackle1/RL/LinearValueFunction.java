@@ -1,6 +1,7 @@
 package hopshackle1.RL;
 
 import hopshackle1.*;
+import hopshackle1.FeatureSets.FeatureSet;
 import serialization.*;
 import serialization.Types.*;
 import java.util.*;

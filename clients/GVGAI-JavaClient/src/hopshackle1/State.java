@@ -1,6 +1,6 @@
 package hopshackle1;
 
-import hopshackle1.models.SSOModifier;
+import hopshackle1.FeatureSets.FeatureSet;
 import serialization.SerializableStateObservation;
 
 import java.util.*;

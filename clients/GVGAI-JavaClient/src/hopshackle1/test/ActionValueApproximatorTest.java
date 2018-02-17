@@ -4,6 +4,8 @@ import hopshackle1.*;
 
 import java.util.*;
 
+import hopshackle1.FeatureSets.FeatureSet;
+import hopshackle1.FeatureSets.GlobalPopulationFeatureSet;
 import hopshackle1.RL.*;
 import hopshackle1.models.*;
 import org.junit.*;
@@ -55,17 +57,17 @@ public class ActionValueApproximatorTest {
         sso = SSOModifier.constructEmptySSO();
         sso.NPCPositions = new Observation[1][1];
         sso.movablePositions = new Observation[1][2];
-        sso.NPCPositions[0][0] = SSOModifier.createNPCObservation(1, 2, 3, 40, 40);
-        sso.movablePositions[0][0] = SSOModifier.createNPCObservation(2, 3, 13, 50, 40);
-        sso.movablePositions[0][1] = SSOModifier.createNPCObservation(3, 3, 13, 60, 40);
+        sso.NPCPositions[0][0] = SSOModifier.createObservation(1, 2, 3, 40, 40);
+        sso.movablePositions[0][0] = SSOModifier.createObservation(2, 3, 13, 50, 40);
+        sso.movablePositions[0][1] = SSOModifier.createObservation(3, 3, 13, 60, 40);
 
         nextSSO = SSOModifier.constructEmptySSO();
         nextSSO.NPCPositions = new Observation[1][1];
         nextSSO.movablePositions = new Observation[1][1];
         nextSSO.fromAvatarSpritesPositions = new Observation[1][1];
-        nextSSO.NPCPositions[0][0] = SSOModifier.createNPCObservation(1, 2, 3, 40, 40);
-        nextSSO.movablePositions[0][0] = SSOModifier.createNPCObservation(2, 3, 13, 50, 40);
-        nextSSO.fromAvatarSpritesPositions[0][0] = SSOModifier.createNPCObservation(89, 3, 1, 50, 40);
+        nextSSO.NPCPositions[0][0] = SSOModifier.createObservation(1, 2, 3, 40, 40);
+        nextSSO.movablePositions[0][0] = SSOModifier.createObservation(2, 3, 13, 50, 40);
+        nextSSO.fromAvatarSpritesPositions[0][0] = SSOModifier.createObservation(89, 3, 1, 50, 40);
         /*
         Feature indices for these are going to be:
                         >0      >1      >2

@@ -1,5 +1,7 @@
-package hopshackle1;
+package hopshackle1.FeatureSets;
 
+import hopshackle1.Cell;
+import hopshackle1.HopshackleUtilities;
 import serialization.*;
 import java.util.*;
 

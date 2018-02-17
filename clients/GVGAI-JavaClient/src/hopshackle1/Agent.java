@@ -1,5 +1,6 @@
 package hopshackle1;
 
+import hopshackle1.FeatureSets.*;
 import hopshackle1.Policies.*;
 import hopshackle1.RL.*;
 import serialization.*;
@@ -54,7 +55,8 @@ public class Agent extends utils.AbstractPlayer {
         this.game_plays_ = 0;
         if (debug) logFile = new EntityLog("Hopshackle1");
 
-        featureSets.add(new AvatarMeshFeatureSet());
+        featureSets.add(new AvatarMeshWidthOneFeatureSet(2));
+        featureSets.add(new AvatarMeshWidthThreeFeatureSet(1));
         featureSets.add(new GlobalPopulationFeatureSet());
 
         QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);

@@ -3,6 +3,7 @@ package hopshackle1.Policies;
 import java.util.*;
 
 import hopshackle1.*;
+import hopshackle1.FeatureSets.FeatureSet;
 import hopshackle1.RL.*;
 import serialization.*;
 import serialization.Types.*;
