@@ -23,6 +23,7 @@ public class State {
     public State() {
         features = new HashMap();
     }
+
     public State(SerializableStateObservation sso, FeatureSet[] featureSets) {
         features = new HashMap();
         for (FeatureSet fs : featureSets)
@@ -42,11 +43,28 @@ public class State {
         return features.getOrDefault(f, 0.0);
     }
 
+    @Override
+    public boolean equals(Object other) {
+        if (other instanceof State) {
+            State otherState = (State) other;
+            for (Integer k : features.keySet()) {
+                if (!(otherState.features.getOrDefault(k, -99.0).equals(features.get(k))))
+                    return false;
+            }
+            for (Integer k : otherState.features.keySet()) {
+                if (!(features.getOrDefault(k, -99.0).equals(otherState.features.get(k))))
+                    return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
     public String toString() {
         if (features.keySet().size() < 25) {
             StringBuilder output = new StringBuilder(String.format("State with %d total features:\n", features.size()));
             for (int f : features.keySet()) {
-                output.append(String.format("\t%20d\t%.3f\n",f, features.get(f)));
+                output.append(String.format("\t%20d\t%.3f\n", f, features.get(f)));
             }
             return output.toString();
         } else {

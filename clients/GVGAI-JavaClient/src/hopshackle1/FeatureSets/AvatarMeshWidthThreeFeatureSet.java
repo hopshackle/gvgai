@@ -29,8 +29,10 @@ public class AvatarMeshWidthThreeFeatureSet implements FeatureSet {
                     logFile.log(String.format("Base feature for %d/%d is %d", i, j, feature));
                     logFile.log("\t" + mesh.toString());
                 }
-                feature += (i+1) * 709469 + (j+1) * 513067;
-                retValue.setFeature(feature, 1.0);
+                if (feature != 0) {
+                    feature += (i + 1) * 709469 + (j + 1) * 513067;
+                    retValue.setFeature(feature, 1.0);
+                }
             }
         }
 

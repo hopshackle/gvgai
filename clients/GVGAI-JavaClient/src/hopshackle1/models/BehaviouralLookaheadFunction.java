@@ -48,6 +48,7 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
         for(BehaviourModel model : spriteTypeToModel.values()) {
             model.apply(sso, avatarMove);
         }
+        SSOModifier.constructGrid(sso);
     }
 
     @Override

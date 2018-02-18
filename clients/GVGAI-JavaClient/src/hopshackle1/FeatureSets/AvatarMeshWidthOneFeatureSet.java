@@ -22,15 +22,16 @@ public class AvatarMeshWidthOneFeatureSet implements FeatureSet {
         // one-cell meshes centred at each cell in a 3x3 grid centered on the Avatar
         for (int i = -distanceFromAvatar; i <= distanceFromAvatar; i++) {
             for (int j = -distanceFromAvatar; j <= distanceFromAvatar; j++) {
-                if (i == 0 && j == 0) continue;
                 MeshHash mesh = new MeshHash(1, obs, i, j);
                 int feature = mesh.hashCode();
                 if (debug) {
                     logFile.log(String.format("Base feature for %d/%d is %d", i, j, feature));
                     logFile.log("\t" + mesh.toString());
                 }
-                feature += (i+1) * 6703 + (j+1) * 28693;
-                retValue.setFeature(feature, 1.0);
+                if (feature != 0) {
+                    feature += (i + 1) * 6703 + (j + 1) * 28693;
+                    retValue.setFeature(feature, 1.0);
+                }
             }
         }
     }
