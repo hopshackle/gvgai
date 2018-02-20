@@ -3,6 +3,8 @@ package hopshackle1;
 import hopshackle1.FeatureSets.*;
 import hopshackle1.Policies.*;
 import hopshackle1.RL.*;
+import hopshackle1.models.*;
+import org.javatuples.*;
 import serialization.*;
 import serialization.Types;
 import utils.ElapsedCpuTimer;
@@ -32,12 +34,14 @@ public class Agent extends utils.AbstractPlayer {
     private EntityLog logFile;
     private boolean debug = false;
     private ActionValueFunctionApproximator QFunction;
+    private BehaviourModel model;
     private RLTargetCalculator rewardCalculator;
     private ReinforcementLearningAlgorithm rl;
     private List<FeatureSet> featureSets = new ArrayList();
     private LinkedList<SARTuple> currentTrajectory;
     private Policy policy;
     private TupleDataBank databank = new TupleDataBank(1000);
+    private Map<Integer, List<Pair<Double, Vector2d>>> predictions = new HashMap();
 
     /**
      * Public method to be called at the start of the communication. No game has been initialized yet.
@@ -59,7 +63,9 @@ public class Agent extends utils.AbstractPlayer {
         featureSets.add(new AvatarMeshWidthThreeFeatureSet(1));
         featureSets.add(new GlobalPopulationFeatureSet());
 
-        QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
+        //   QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
+        model = new BehaviouralLookaheadFunction();
+        QFunction = new LookaheadLinearActionValue(featureSets, gamma, debug, (LookaheadFunction) model);
         rewardCalculator = new QLearning(1, alpha, gamma, lambda, QFunction);
         policy = new BoltzmannPolicy(QFunction, 0.1);
         rl = (QLearning) rewardCalculator;
@@ -77,6 +83,8 @@ public class Agent extends utils.AbstractPlayer {
     public void init(SerializableStateObservation sso, ElapsedCpuTimer elapsedTimer) {
         currentTrajectory = new LinkedList<>();
         if (debug) logFile.log("Initialising new trajectory");
+        if (model != null)
+            model.reset(sso);
     }
 
 
@@ -95,11 +103,40 @@ public class Agent extends utils.AbstractPlayer {
         double new_score = sso.gameScore;
         double reward = calculateReward(sso);
 
+        if (model != null) {
+            model.updateModelStatistics(sso);
+        }
+
         if (last_state_ != null) {
             SARTuple tuple = new SARTuple(last_state_, sso, last_action_, lastAvailableActions, sso.availableActions, reward);
             currentTrajectory.add(tuple);
             if (debug) {
                 logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f", tuple.ref, last_action_, reward));
+            }
+        }
+
+        if (debug && model != null) {
+            // score the result of our predictions
+            if (!predictions.isEmpty()) {
+                Map<Integer, Double> accuracyBySpriteType = SSOModifier.accuracyOf(predictions, sso);
+                for (Integer spriteType : accuracyBySpriteType.keySet()) {
+                    logFile.log(String.format("Accuracy %.2f for predictions of %d", accuracyBySpriteType.get(spriteType), spriteType));
+                }
+            }
+            // then we track predictions for comparison to actual results
+            predictions = new HashMap();
+            List<Pair<Integer, Integer>> allSprites = SSOModifier.getAllSprites(sso,
+                    new int[]{SSOModifier.TYPE_FROMAVATAR, SSOModifier.TYPE_MOVABLE, SSOModifier.TYPE_NPC});
+            for (Pair<Integer, Integer> s : allSprites) {
+                int spriteID = s.getValue0();
+                Vector2d currentPosition = SSOModifier.positionOf(spriteID, sso);
+                StringBuilder msg = new StringBuilder(String.format("T:%d ID:%d at %s\n", s.getValue1(), spriteID, currentPosition.toString()));
+                List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(spriteID, sso.avatarLastAction);
+                predictions.put(spriteID, pdf);
+                for (Pair<Double, Vector2d> option : pdf) {
+                    msg.append(String.format("\t%.2f\t%s\n", option.getValue0(), option.getValue1().toString()));
+                }
+                logFile.log(msg.toString());
             }
         }
 
@@ -116,7 +153,7 @@ public class Agent extends utils.AbstractPlayer {
 
         int remainingTime = (int) elapsedTimer.remainingTimeMillis();
         if (thingToTrain != null) {
-            databank.teach(thingToTrain, remainingTime - 10, rl);
+            databank.teach(thingToTrain, remainingTime - 25, rl);
         } else {
             logFile.log("Nothing to train....");
         }
@@ -152,6 +189,17 @@ public class Agent extends utils.AbstractPlayer {
         if (debug) {
             logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f and final score %.2f", tuple.ref, last_action_, reward, sso.gameScore));
             logFile.log("End of game.");
+            Map<Types.ACTIONS, Integer> actionCounts = new HashMap();
+            for (SARTuple exp : currentTrajectory) {
+                int oldCount = actionCounts.getOrDefault(exp.action, 0);
+                actionCounts.put(exp.action, oldCount + 1);
+            }
+            StringBuilder msg = new StringBuilder("Total action counts in game:\n");
+            for (Types.ACTIONS action : actionCounts.keySet()) {
+                msg.append(String.format("\t%s\t%d\t(%.0f%%)\n", action.toString(), actionCounts.get(action),
+                        100.0 * (double) actionCounts.get(action) / (double) currentTrajectory.size()));
+            }
+            logFile.log(msg.toString());
             logFile.flush();
         }
 

@@ -82,16 +82,18 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
 
     @Override
     public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
-        State state = calculateState(tuple.startSSO);
-
+        SerializableStateObservation forward = lookahead.rollForward(tuple.startSSO, tuple.action);
+        State state = calculateState(forward);
+        double currentValuation = value(state);
+        double delta = tuple.target - currentValuation;
         for (Integer feature : state.features.keySet()) {
-            modifyCoeff(feature, tuple.target, state.features.get(feature), rl);
+            modifyCoeff(feature, delta, state.features.get(feature), rl);
         }
     }
 
-    private void modifyCoeff(int f, double target, double fValue, ReinforcementLearningAlgorithm rl) {
+    private void modifyCoeff(int f, double delta, double fValue, ReinforcementLearningAlgorithm rl) {
         double currentValue = getCoeffFor(f);
-        double newValue = (1.0 - rl.regularisation()) * (currentValue + (rl.learningRate() * fValue * target));
+        double newValue = (1.0 - rl.regularisation()) * (currentValue + (rl.learningRate() * fValue * delta));
         setCoeffFor(f, newValue);
     }
 

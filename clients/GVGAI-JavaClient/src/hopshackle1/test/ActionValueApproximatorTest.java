@@ -120,6 +120,9 @@ public class ActionValueApproximatorTest {
         stateOnly.setCoeffFor(339, 3.0);            // used
         lookahead.setCoeffFor(2587, 0.5);               // used
         lookahead.setCoeffFor(597, 2.5);            // not used
+        assertEquals(independent.value(sso), 2.0, 0.001);
+        assertEquals(stateOnly.value(sso), 3.0, 0.001);
+        assertEquals(lookahead.value(sso), 0.5, 0.001);
 
         SARTuple trainingInstance = new SARTuple(sso, nextSSO, ACTIONS.ACTION_LEFT, allActions, allActions, 1.0);
         trainingInstance.target = 1.0;
@@ -129,28 +132,32 @@ public class ActionValueApproximatorTest {
         lookahead.learnFrom(trainingInstance, dummy);
 
         /*
-        alpba = 0.5, lambda = 0.01, and the following features are on in sso:
+        alpha = 0.5, lambda = 0.01, and the following features are on in sso:
                 339, 1469, 2587
-                In each case, alpha will increase the parameter by 0.5 in absolute terms
+                In each case, alpha will increase the parameter by 0.5 * target
                    and then lambda will reduce it to 99% of final value
+
+                 independent target = -1
+                 stateOnly target = -2
+                 lookahead target = 0.5
          */
-        assertEquals(independent.getCoeffFor(0, 339), 2.475, 0.001); // no change
+        assertEquals(independent.getCoeffFor(0, 339), 0.99 * (2.0 - 0.5), 0.001); // no change
         assertEquals(independent.getCoeffFor(1, 339), 0.0, 0.001); // no change
         assertEquals(independent.getCoeffFor(2, 339), 0.0, 0.001); // no change
 
-        assertEquals(stateOnly.getCoeffFor(339), 0.99 * 3.5, 0.001);
-        assertEquals(stateOnly.getCoeffFor(1469), 0.495, 0.001);
-        assertEquals(stateOnly.getCoeffFor(2587), 0.495, 0.001);
+        assertEquals(stateOnly.getCoeffFor(339), 0.99 * (3.0 - 1.0), 0.001);
+        assertEquals(stateOnly.getCoeffFor(1469), 0.99 * -1.0, 0.001);
+        assertEquals(stateOnly.getCoeffFor(2587), 0.99 * -1.0, 0.001);
         assertEquals(stateOnly.getCoeffFor(941), 0.0, 0.001);
 
-        assertEquals(lookahead.getCoeffFor(339), 0.99 * 0.5, 0.001);
-        assertEquals(lookahead.getCoeffFor(1469), 0.495, 0.001);
-        assertEquals(lookahead.getCoeffFor(2587), 0.99, 0.001);
+        assertEquals(lookahead.getCoeffFor(339), 0.99 * 0.25, 0.001);
+        assertEquals(lookahead.getCoeffFor(1469), 0.99 * 0.25, 0.001);
+        assertEquals(lookahead.getCoeffFor(2587), 0.99 * (0.5 + 0.25), 0.001);
         assertEquals(lookahead.getCoeffFor(941), 0.0, 0.001);
 
-        assertEquals(independent.value(sso), 2.475 + 2 * 0.495, 0.001);
-        assertEquals(stateOnly.value(sso), 0.99 * (3.5 + 0.5 + 0.5), 0.001);
-        assertEquals(lookahead.value(sso), 0.99 * (1.0 + 0.5 + 0.5), 0.001);
+        assertEquals(independent.value(sso), 0.99 * 1.5 + 2 * -0.495, 0.001);
+        assertEquals(stateOnly.value(sso), 0.99 * (2.0 - 1.0 - 1.0), 0.001);
+        assertEquals(lookahead.value(sso), 0.99 * (0.75 + 0.25 + 0.25), 0.001);
     }
 
     @Test
@@ -159,24 +166,31 @@ public class ActionValueApproximatorTest {
         independent.setCoeffFor(0, 339, 2.0);   // used
         independent.setCoeffFor(1, 339, 1.0);   // ACTION_LEFT
         independent.setCoeffFor(2, 339, -1.0);   // ACTION_ESCAPE
+        assertEquals(independent.value(sso), 2.0, 0.001);
+        assertEquals(independent.value(sso, ACTIONS.ACTION_LEFT), 1.0, 0.001);
+        assertEquals(independent.value(sso, ACTIONS.ACTION_NIL), 0.0, 0.001);
+        assertEquals(independent.value(sso, ACTIONS.ACTION_ESCAPE), -1.0, 0.001);
 
-        SARTuple trainingInstance = new SARTuple(sso, nextSSO, ACTIONS.ACTION_LEFT, allActions, allActions, 1.0);
+        SARTuple trainingInstance = new SARTuple(sso, nextSSO, ACTIONS.ACTION_ESCAPE, allActions, allActions, 1.0);
         trainingInstance.target = 1.0;
 
         independent.learnFrom(trainingInstance, dummy);
 
         /*
-        alpba = 0.5, lambda = 0.01, and the following features are on in sso:
+        alpha = 0.5, lambda = 0.01, and the following features are on in sso:
                 339, 1469, 2587
-                In each case, alpha will increase the parameter by 0.5 in absolute terms
+                In each case, alpha will increase the parameter by 0.5 * target
                    and then lambda will reduce it to 99% of final value
+
+                 ESCAPE target = 2.0
          */
         assertEquals(independent.getCoeffFor(0, 339), 2.0, 0.001); // no change
-        assertEquals(independent.getCoeffFor(1, 339), 0.99 * 1.5, 0.001); // no change
-        assertEquals(independent.getCoeffFor(2, 339), -1.0, 0.001); // no change
+        assertEquals(independent.getCoeffFor(1, 339), 1.0, 0.001); // no change
+        assertEquals(independent.getCoeffFor(2, 339), 0.99  * (-1.0 + 1.0), 0.001); //changed
 
         assertEquals(independent.value(sso), 2.0, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_LEFT), 0.99 * 2.5, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_ESCAPE), -1.0, 0.001);
+        assertEquals(independent.value(sso, ACTIONS.ACTION_LEFT), 1.0, 0.001);
+        assertEquals(independent.value(sso, ACTIONS.ACTION_NIL), 0.0, 0.001);
+        assertEquals(independent.value(sso, ACTIONS.ACTION_ESCAPE), 0.0 + 0.99 * 2.0, 0.001);
     }
 }

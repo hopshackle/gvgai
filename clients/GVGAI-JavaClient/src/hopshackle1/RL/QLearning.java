@@ -12,7 +12,6 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
     private double alpha, lambda, gamma;
     private int nStepReward;
     private ActionValueFunctionApproximator QFunction;
-    private Random rnd = new Random(56);
     private boolean debug = false;
     private EntityLog logFile;
 
@@ -33,7 +32,6 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
         double[] nSteps = new double[nStepReward];
         int currentIndex = 0;
         double runningRewardSum = 0.0;
-        double gammaNminus = Math.pow(gamma, nStepReward - 1);
         double gammaN = Math.pow(gamma, nStepReward);
 
         while (backwardsChain.hasNext()) {

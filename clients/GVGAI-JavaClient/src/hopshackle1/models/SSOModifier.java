@@ -2,6 +2,7 @@ package hopshackle1.models;
 
 import hopshackle1.HopshackleUtilities;
 import serialization.*;
+import org.javatuples.*;
 
 import java.util.*;
 
@@ -33,7 +34,7 @@ public class SSOModifier {
         addAllObsToList(sso.getNPCPositions(), allExtantObs);
         addAllObsToList(sso.getPortalsPositions(), allExtantObs);
         addAllObsToList(sso.getFromAvatarSpritesPositions(), allExtantObs);
-        Observation avatarObs = createObservation(0, 0,sso.avatarType, sso.avatarPosition[0], sso.avatarPosition[1]);
+        Observation avatarObs = createObservation(0, 0, sso.avatarType, sso.avatarPosition[0], sso.avatarPosition[1]);
         allExtantObs.add(avatarObs);
 
         List<Observation>[][] wipObsGrid = new ArrayList[(int) (sso.worldDimension[0] / sso.blockSize)][(int) (sso.worldDimension[1] / sso.blockSize)];
@@ -182,6 +183,79 @@ public class SSOModifier {
         throw new AssertionError(String.format("Sprite %d of category %d not found", id, category));
     }
 
+    public static List<Pair<Integer, Integer>> getAllSprites(SerializableStateObservation sso, int[] categories) {
+        List<Pair<Integer, Integer>> retValue = new ArrayList();
+        for (int i = 0; i < categories.length; i++) {
+            retValue.addAll(getSpritesOfCategory(categories[i], sso));
+        }
+        return retValue;
+    }
+
+    public static List<Pair<Integer, Integer>> getSpritesOfCategory(int category, SerializableStateObservation sso) {
+        List<Pair<Integer, Integer>> retValue = new ArrayList();
+        Observation[][] observations = getObsArrayForCategory(category, sso);
+        if (observations != null) {
+            for (Observation[] a : observations) {
+                for (Observation o : a) {
+                    retValue.add(new Pair(o.obsID, o.itype));
+                }
+            }
+        }
+        return retValue;
+    }
+
+    public static Map<Integer, Double> accuracyOf(Map<Integer, List<Pair<Double, Vector2d>>> predictions, SerializableStateObservation sso) {
+        Map<Integer, Double> retValue = new HashMap();
+        Map<Integer, Double> countPerType = new HashMap();
+        List<Pair<Integer, Integer>> currentSprites = getAllSprites(sso, new int[]{1, 2, 3, 4, 5, 6});
+        for (Pair<Integer, Integer> sprite : currentSprites) {
+            int spriteID = sprite.getValue0();
+            if (predictions.containsKey(spriteID)) {
+                Vector2d currentPosition = SSOModifier.positionOf(spriteID, sso);
+                int type = sprite.getValue1();
+                if (!retValue.containsKey(type)) {
+                    retValue.put(type, 0.00);
+                    countPerType.put(type, 0.00);
+                }
+                double v = 0.00;
+                for (Pair<Double, Vector2d> prediction : predictions.get(spriteID)) {
+                    Vector2d predictedPosition = prediction.getValue1();
+                    double closestSoFar = sso.blockSize; // must be within at least this
+                    double distanceToActualPosition = predictedPosition.dist(currentPosition);
+                    if (distanceToActualPosition < closestSoFar) {
+                        // correct
+                        v = prediction.getValue0(); // the predicted probability
+                        closestSoFar = distanceToActualPosition;
+                    }
+                }
+                double countSoFar = countPerType.get(type);
+                retValue.put(type, (retValue.get(type) * countSoFar + v) / (countSoFar + 1.0));
+                countPerType.put(type, countSoFar + 1.0);
+            }
+        }
+        return retValue;
+    }
+
+    public static Vector2d positionOf(int spriteID, SerializableStateObservation sso) {
+        if (spriteID == 0) {
+            return new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
+        }
+        for (int i = 1; i <= 6; i++) {
+            Observation[][] obs = getObsArrayForCategory(i, sso);
+            if (obs != null) {
+                for (Observation[] ob : obs) {
+                    for (Observation observation : ob) {
+                        if (observation != null && observation.obsID == spriteID) {
+                            // found it
+                            return observation.position;
+                        }
+                    }
+                }
+            }
+        }
+        return new Vector2d(-100.0, -100.0); // not found at all
+    }
+
     public static Observation createObservation(int id, int category, int type, double x, double y) {
         Observation retValue = new Observation();
         retValue.category = category;
@@ -224,6 +298,7 @@ public class SSOModifier {
         }
         return obsArray;
     }
+
     private static void setObsArrayForCategory(int category, SerializableStateObservation sso, Observation[][] obsArray) {
         switch (category) {
             case TYPE_RESOURCE:

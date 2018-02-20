@@ -100,14 +100,15 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
     }
 
     private void checkForNewSpriteTypesIn(Observation[][] positions) {
+        if (positions == null) return;
         for (Observation[] o1 : positions) {
-            if (o1.length > 0 && !spriteTypeToModel.containsKey(o1[0].itype)) {
+            if (o1 != null && o1.length > 0 && !spriteTypeToModel.containsKey(o1[0].itype)) {
                 BehaviourModel newModel = new SimpleSpriteModel(blockSize);
                 newModel.associateWithSprite(o1[0].itype);
                 spriteTypeToModel.put(o1[0].itype, newModel);
             }
             for (Observation o : o1) {
-                if (!IDToSpriteType.containsKey(o.obsID)) {
+                if (o != null && !IDToSpriteType.containsKey(o.obsID)) {
                     IDToSpriteType.put(o.obsID, o.itype);
                 }
             }

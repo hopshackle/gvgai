@@ -151,22 +151,25 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
     public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
         State state = calculateState(tuple.startSSO);
         int actionIndex = getIndexFor(tuple.action);
+        double currentValuation = value(state, tuple.action);
 
-        modifyCoeff(state.features, actionIndex, tuple.target, rl);
+        double delta = tuple.target - currentValuation;
+        modifyCoeff(state.features, actionIndex, delta, rl);
     }
 
     public void learnValueFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
         State state = calculateState(tuple.startSSO);
         int actionIndex = 0;
-
-        modifyCoeff(state.features, actionIndex, tuple.target, rl);
+        double currentValuation = value(state);
+        double delta = tuple.target - currentValuation;
+        modifyCoeff(state.features, actionIndex, delta, rl);
     }
 
-    private void modifyCoeff(Map<Integer, Double> features, int actionIndex, double target, ReinforcementLearningAlgorithm rl) {
+    private void modifyCoeff(Map<Integer, Double> features, int actionIndex, double delta, ReinforcementLearningAlgorithm rl) {
         for (Integer f : features.keySet()) {
             double fValue = features.get(f);
             double currentValue = getCoeffFor(actionIndex, f);
-            double newValue = (1.0 - rl.regularisation()) * (currentValue + (rl.learningRate() * fValue * target));
+            double newValue = (1.0 - rl.regularisation()) * (currentValue + (rl.learningRate() * fValue * delta));
             setCoeffFor(actionIndex, f, newValue);
         }
     }

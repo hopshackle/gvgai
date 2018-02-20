@@ -74,6 +74,7 @@ public class SimpleSpriteModel implements BehaviourModel {
     }
 
     private void updateObservations(Observation[][] observations, Types.ACTIONS move) {
+        if (observations == null) return;
         for (Observation[] npc : observations) {
             for (Observation obs : npc) {
                 if (obs.itype == spriteType && lastDirection.containsKey(obs.obsID)) {
@@ -155,9 +156,12 @@ public class SimpleSpriteModel implements BehaviourModel {
     }
 
     private void updateStatisticsFromObservations(Observation[][] data) {
+        if (data == null) return;
         for (Observation[] npcPosition : data) {
-            for (Observation obs : npcPosition) {
-                updateStatisticsFrom(obs);
+            if (npcPosition != null) {
+                for (Observation obs : npcPosition) {
+                    updateStatisticsFrom(obs);
+                }
             }
         }
     }

@@ -36,6 +36,7 @@ public class HopshackleUtilities {
     }
 
     public static <T> T[][] cloneArray(T[][] arrayToClone) {
+        if (arrayToClone == null) return null;
         T[][] retValue = Arrays.copyOf(arrayToClone, arrayToClone.length);
         for (int i = 0; i < arrayToClone.length; i++) {
             if (arrayToClone[i] != null)
@@ -45,6 +46,7 @@ public class HopshackleUtilities {
     }
 
     public static <T> T[][][] cloneArray(T[][][] arrayToClone) {
+        if (arrayToClone == null) return null;
         T[][][] retValue = Arrays.copyOf(arrayToClone, arrayToClone.length);
         for (int i = 0; i < arrayToClone.length; i++) {
             if (arrayToClone[i] != null) {

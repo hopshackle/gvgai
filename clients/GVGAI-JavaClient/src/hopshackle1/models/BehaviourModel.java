@@ -6,14 +6,6 @@ import org.javatuples.*;
 import java.util.*;
 
 public interface BehaviourModel {
-
-    /*
-    Instruct the BehaviourModel to start modelling the specified sprite type
-    Without calling this, the model will not actually do anything
-    (Could have been put in a Constructor, but may be helpful later)
-     */
-    public void associateWithSprite(int type);
-
     /*
     This wipes all ongoing sprite tracking information, but retains the underlying model learned to date
     Use when a new game is started for example
@@ -24,6 +16,13 @@ public interface BehaviourModel {
     This assumes the provided SerializableStateObservation is the next one in sequence
      */
     public void updateModelStatistics(SerializableStateObservation sso);
+
+    /*
+    Instruct the BehaviourModel to start modelling the specified sprite type
+    Without calling this, the model will not actually do anything
+    (Could have been put in a Constructor, but may be helpful later)
+     */
+    public void associateWithSprite(int type);
 
     /*
     Apply the BehaviourModel to predict the next State of the whole system

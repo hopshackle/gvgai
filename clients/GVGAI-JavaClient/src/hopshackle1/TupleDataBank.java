@@ -9,7 +9,7 @@ public class TupleDataBank {
     private List<SARTuple> data = new ArrayList();
     private int tupleLimit;
     private Random rnd = new Random();
-    private boolean debug = true;
+    private boolean debug = false;
 
     public TupleDataBank(int limit) {
         tupleLimit = limit;
@@ -33,6 +33,7 @@ public class TupleDataBank {
     }
 
     public void teach(Trainable fa, int milliseconds, ReinforcementLearningAlgorithm rl) {
+        if (data.isEmpty()) return;
         int tuplesUsed = 0;
         long startTime = System.currentTimeMillis();
         do {
