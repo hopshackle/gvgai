@@ -204,9 +204,8 @@ public class SSOModifier {
         return retValue;
     }
 
-    public static Map<Integer, Double> accuracyOf(Map<Integer, List<Pair<Double, Vector2d>>> predictions, SerializableStateObservation sso) {
-        Map<Integer, Double> retValue = new HashMap();
-        Map<Integer, Double> countPerType = new HashMap();
+    public static Map<Integer, Pair<Integer, Double>> accuracyOf(Map<Integer, List<Pair<Double, Vector2d>>> predictions, SerializableStateObservation sso) {
+        Map<Integer, Pair<Integer, Double>> retValue = new HashMap();
         List<Pair<Integer, Integer>> currentSprites = getAllSprites(sso, new int[]{1, 2, 3, 4, 5, 6});
         for (Pair<Integer, Integer> sprite : currentSprites) {
             int spriteID = sprite.getValue0();
@@ -214,8 +213,7 @@ public class SSOModifier {
                 Vector2d currentPosition = SSOModifier.positionOf(spriteID, sso);
                 int type = sprite.getValue1();
                 if (!retValue.containsKey(type)) {
-                    retValue.put(type, 0.00);
-                    countPerType.put(type, 0.00);
+                    retValue.put(type, new Pair(0, 0.00));
                 }
                 double v = 0.00;
                 for (Pair<Double, Vector2d> prediction : predictions.get(spriteID)) {
@@ -228,9 +226,9 @@ public class SSOModifier {
                         closestSoFar = distanceToActualPosition;
                     }
                 }
-                double countSoFar = countPerType.get(type);
-                retValue.put(type, (retValue.get(type) * countSoFar + v) / (countSoFar + 1.0));
-                countPerType.put(type, countSoFar + 1.0);
+                int countSoFar = retValue.get(type).getValue0();
+                double accuracy = retValue.get(type).getValue1();
+                retValue.put(type, new Pair(countSoFar + 1, (accuracy * countSoFar + v) / (countSoFar + 1.0)));
             }
         }
         return retValue;

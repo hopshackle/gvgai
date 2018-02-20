@@ -35,6 +35,7 @@ public class Agent extends utils.AbstractPlayer {
     private boolean debug = false;
     private ActionValueFunctionApproximator QFunction;
     private BehaviourModel model;
+    private Map<Integer, Pair<Integer, Double>> accuracyTracker;
     private RLTargetCalculator rewardCalculator;
     private ReinforcementLearningAlgorithm rl;
     private List<FeatureSet> featureSets = new ArrayList();
@@ -42,6 +43,9 @@ public class Agent extends utils.AbstractPlayer {
     private Policy policy;
     private TupleDataBank databank = new TupleDataBank(1000);
     private Map<Integer, List<Pair<Double, Vector2d>>> predictions = new HashMap();
+    private Map<Integer, Integer> featureSeenCount = new HashMap();
+    private double rewardPerNewFeature = 0.1;
+    private int newFeaturesInEpisode;
 
     /**
      * Public method to be called at the start of the communication. No game has been initialized yet.
@@ -57,13 +61,13 @@ public class Agent extends utils.AbstractPlayer {
         this.game_selector_ = new GameSelector();
         this.current_level_ = 0;
         this.game_plays_ = 0;
-        if (debug) logFile = new EntityLog("Hopshackle1");
+        logFile = new EntityLog("Hopshackle1");
 
         featureSets.add(new AvatarMeshWidthOneFeatureSet(2));
         featureSets.add(new AvatarMeshWidthThreeFeatureSet(1));
         featureSets.add(new GlobalPopulationFeatureSet());
 
-        //   QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
+        //QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
         model = new BehaviouralLookaheadFunction();
         QFunction = new LookaheadLinearActionValue(featureSets, gamma, debug, (LookaheadFunction) model);
         rewardCalculator = new QLearning(1, alpha, gamma, lambda, QFunction);
@@ -85,6 +89,8 @@ public class Agent extends utils.AbstractPlayer {
         if (debug) logFile.log("Initialising new trajectory");
         if (model != null)
             model.reset(sso);
+        accuracyTracker = new HashMap();
+        newFeaturesInEpisode = 0;
     }
 
 
@@ -115,12 +121,17 @@ public class Agent extends utils.AbstractPlayer {
             }
         }
 
-        if (debug && model != null) {
+        if (model != null) {
             // score the result of our predictions
             if (!predictions.isEmpty()) {
-                Map<Integer, Double> accuracyBySpriteType = SSOModifier.accuracyOf(predictions, sso);
+                Map<Integer, Pair<Integer, Double>> accuracyBySpriteType = SSOModifier.accuracyOf(predictions, sso);
                 for (Integer spriteType : accuracyBySpriteType.keySet()) {
-                    logFile.log(String.format("Accuracy %.2f for predictions of %d", accuracyBySpriteType.get(spriteType), spriteType));
+                    Pair<Integer, Double> runningAcc = accuracyTracker.getOrDefault(spriteType, new Pair(0, 0.00));
+                    int nSprite = accuracyBySpriteType.get(spriteType).getValue0();
+                    double acc = accuracyBySpriteType.get(spriteType).getValue1();
+                    accuracyTracker.put(spriteType, new Pair(runningAcc.getValue0() + nSprite, runningAcc.getValue1() + acc * nSprite));
+                    if (debug) logFile.log(String.format("Accuracy %.2f for predictions of %d instances of %d",
+                            nSprite, acc, spriteType));
                 }
             }
             // then we track predictions for comparison to actual results
@@ -130,13 +141,15 @@ public class Agent extends utils.AbstractPlayer {
             for (Pair<Integer, Integer> s : allSprites) {
                 int spriteID = s.getValue0();
                 Vector2d currentPosition = SSOModifier.positionOf(spriteID, sso);
-                StringBuilder msg = new StringBuilder(String.format("T:%d ID:%d at %s\n", s.getValue1(), spriteID, currentPosition.toString()));
                 List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(spriteID, sso.avatarLastAction);
                 predictions.put(spriteID, pdf);
-                for (Pair<Double, Vector2d> option : pdf) {
-                    msg.append(String.format("\t%.2f\t%s\n", option.getValue0(), option.getValue1().toString()));
+                if (debug) {
+                    StringBuilder msg = new StringBuilder(String.format("T:%d ID:%d at %s\n", s.getValue1(), spriteID, currentPosition.toString()));
+                    for (Pair<Double, Vector2d> option : pdf) {
+                        msg.append(String.format("\t%.2f\t%s\n", option.getValue0(), option.getValue1().toString()));
+                    }
+                    logFile.log(msg.toString());
                 }
-                logFile.log(msg.toString());
             }
         }
 
@@ -189,19 +202,26 @@ public class Agent extends utils.AbstractPlayer {
         if (debug) {
             logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f and final score %.2f", tuple.ref, last_action_, reward, sso.gameScore));
             logFile.log("End of game.");
-            Map<Types.ACTIONS, Integer> actionCounts = new HashMap();
-            for (SARTuple exp : currentTrajectory) {
-                int oldCount = actionCounts.getOrDefault(exp.action, 0);
-                actionCounts.put(exp.action, oldCount + 1);
-            }
-            StringBuilder msg = new StringBuilder("Total action counts in game:\n");
-            for (Types.ACTIONS action : actionCounts.keySet()) {
-                msg.append(String.format("\t%s\t%d\t(%.0f%%)\n", action.toString(), actionCounts.get(action),
-                        100.0 * (double) actionCounts.get(action) / (double) currentTrajectory.size()));
-            }
-            logFile.log(msg.toString());
-            logFile.flush();
         }
+        Map<Types.ACTIONS, Integer> actionCounts = new HashMap();
+        for (SARTuple exp : currentTrajectory) {
+            int oldCount = actionCounts.getOrDefault(exp.action, 0);
+            actionCounts.put(exp.action, oldCount + 1);
+        }
+        StringBuilder msg = new StringBuilder("Total action counts in game:\n");
+        for (Types.ACTIONS action : actionCounts.keySet()) {
+            msg.append(String.format("\t%s\t%d\t(%.0f%%)\n", action.toString(), actionCounts.get(action),
+                    100.0 * (double) actionCounts.get(action) / (double) currentTrajectory.size()));
+        }
+        logFile.log(msg.toString());
+        msg = new StringBuilder("Accuracy of Model over game:\n");
+        for (Integer spriteType : accuracyTracker.keySet()) {
+            Pair<Integer, Double> results = accuracyTracker.get(spriteType);
+            msg.append(String.format("\tSprite Type: %s\t%.0f%%\n", spriteType, 100.0 * results.getValue1() / results.getValue0()));
+        }
+        logFile.log(msg.toString());
+        logFile.log("Total new features in episode: " +newFeaturesInEpisode + "\n");
+        logFile.flush();
 
         last_score_ = 0.0;
         last_state_ = null;
@@ -229,6 +249,17 @@ public class Agent extends utils.AbstractPlayer {
     }
 
     public double calculateReward(SerializableStateObservation sso) {
+        double explorationReward = 0.00;
+        if (rewardPerNewFeature > 0.00) {
+            State state = QFunction.calculateState(sso);
+            for (Integer f : state.features.keySet()) {
+                if (!featureSeenCount.containsKey(f)) {
+                    explorationReward += rewardPerNewFeature;
+                    featureSeenCount.put(f, 1);
+                    newFeaturesInEpisode++;
+                }
+            }
+        }
         double new_score = sso.gameScore;
         if (sso.isGameOver) {
             if (sso.gameWinner == Types.WINNER.PLAYER_WINS) {
@@ -237,7 +268,7 @@ public class Agent extends utils.AbstractPlayer {
                 new_score -= gameWinBonus;
             }
         }
-        return new_score - last_score_;
+        return new_score - last_score_ + explorationReward;
     }
 
 

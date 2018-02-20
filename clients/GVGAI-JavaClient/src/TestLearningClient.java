@@ -29,7 +29,7 @@ public class TestLearningClient
             serverDir = "../..";
         }
         String agentName = "hopshackle1.Agent";         //Agent to play with
-        boolean visuals = false;
+        boolean visuals = true;
         /** Get arguments */
         Map<String, List<String>> params = new HashMap<>();
         List<String> options = null;
