@@ -1,5 +1,6 @@
 package hopshackle1.test;
 
+import hopshackle1.HopshackleUtilities;
 import org.javatuples.*;
 import org.junit.*;
 
@@ -12,41 +13,62 @@ import java.util.*;
 public class SimpleSpriteModelTest {
 
     SimpleSpriteModel model;
+    SerializableStateObservation sso;
+    GameStatusTrackerWithHistory gst;
 
     @Before
     public void setup() {
-        model = new SimpleSpriteModel(5);
-        model.associateWithSprite(4);
+        sso = SSOModifier.constructEmptySSO();
+        model = new SimpleSpriteModel(5, 4);
+        gst = new GameStatusTrackerWithHistory();
     }
 
     @Test
     public void correctStatisticsBeforeAnyData() {
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 45, 50));
-        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6, null);
+
+        SSOModifier.addSprite(6, 6,4, 45, 50, sso);
+        gst.update(sso);
+        model.updateModelStatistics(gst);
+
+        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(gst, 6, null);
         assertEquals(pdf.size(), 1);
         assertEquals(pdf.get(0).getValue0(), 1.00, 0.001);
         assertEquals(pdf.get(0).getValue1().x, 45.0, 0.001);
         assertEquals(pdf.get(0).getValue1().y, 50.0, 0.001);
 
-        Vector2d move = model.nextMoveMAP(6, null);
+        Vector2d move = model.nextMoveMAP(gst, 6, null);
         assertEquals(move.x, 45.0, 0.001);
         assertEquals(move.y, 50.0, 0.001);
 
-        move = model.nextMoveRandom(6, null);
+        move = model.nextMoveRandom(gst, 6, null);
         assertEquals(move.x, 45.0, 0.001);
         assertEquals(move.y, 50.0, 0.001);
     }
 
+    private void updateGST() {
+        gst.update(sso);
+        sso = SSOModifier.copy(sso);
+        sso.gameTick++;
+    }
+
     @Test
     public void correctStatisticsAfterSomeMoves() {
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 45, 50));
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 45, 55));
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 48, 58));
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 48, 58));
+
+        SSOModifier.addSprite(6, 6,4, 45, 50, sso);
+        gst.update(sso);
+
+        SSOModifier.moveSprite(6, 6, 45, 55, sso);
+        updateGST();
+        SSOModifier.moveSprite(6, 6, 48, 58, sso);
+        updateGST();
+        SSOModifier.moveSprite(6, 6, 48, 58, sso);
+        updateGST();
+
         // that should be S (4), SE (3), Stationary (-)
         // direction changes of 0, 7, Static
+        model.updateModelStatistics(gst);
 
-        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6, null);
+        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(gst, 6, null);
         assertEquals(pdf.size(), 3);        // static, move forward, turn half-left
         assertEquals(pdf.get(0).getValue0(), 6.0 / 8.0, 0.001); // stasis
         assertEquals(pdf.get(0).getValue1().x, 48.0, 0.001);
@@ -60,23 +82,32 @@ public class SimpleSpriteModelTest {
         assertEquals(pdf.get(2).getValue1().x, 53.0, 0.001);
         assertEquals(pdf.get(2).getValue1().y, 58.0, 0.001);
 
-        Vector2d mapMove = model.nextMoveMAP(6, null);
+        Vector2d mapMove = model.nextMoveMAP(gst, 6, null);
         assertEquals(mapMove.x, 48.0, 0.001);
         assertEquals(mapMove.y, 58.0, 0.001);
     }
 
     @Test
     public void correctRandomMoves() {
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 45, 50));
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 45, 55));
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 48, 58));
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 48, 58));
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 53, 58));
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 50, 62));
+
+        SSOModifier.addSprite(6, 6,4, 45, 50, sso);
+        gst.update(sso);
+
+        SSOModifier.moveSprite(6, 6, 45, 55, sso);
+        updateGST();
+        SSOModifier.moveSprite(6, 6, 48, 58, sso);
+        updateGST();
+        SSOModifier.moveSprite(6, 6, 48, 58, sso);
+        updateGST();
+        SSOModifier.moveSprite(6, 6, 53, 58, sso);
+        updateGST();
+        SSOModifier.moveSprite(6, 6, 50, 62, sso);
+        updateGST();
+        model.updateModelStatistics(gst);
         // that should be S (4), SE (3), Stationary (-), E (2), SW (5)
         // direction changes of 0, 7, Static, 7, 3
 
-        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(6, null);
+        List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(gst, 6, null);
         assertEquals(pdf.size(), 4);        // static, straightOn, hardRight, softLeft
         assertEquals(pdf.get(0).getValue0(), 0.6, 0.001); // stasis
         assertEquals(pdf.get(0).getValue1().x, 50.0, 0.001);
@@ -96,7 +127,7 @@ public class SimpleSpriteModelTest {
 
         int stationary = 0, hardRight = 0, softLeft = 0, straightOn = 0;
         for (int i = 0; i < 1000; i++) {
-            Vector2d m = model.nextMoveRandom(6, null);
+            Vector2d m = model.nextMoveRandom(gst, 6, null);
             double x = m.x;
             double y = m.y;
             if (x < 50.1 && x > 49.9 && y < 62.1 && y > 61.9) stationary++;
@@ -115,39 +146,68 @@ public class SimpleSpriteModelTest {
 
     @Test
     public void checkAllDirections() {
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 45, 50));
-        Vector2d pos = model.getCurrentPosition(6);
+        SSOModifier.addSprite(6, 6,4, 45, 50, sso);
+        gst.update(sso);
+        Vector2d pos = gst.getCurrentPosition(6);
         assertEquals(pos.x, 45.0, 0.001);
         assertEquals(pos.y, 50.0, 0.001);
-        assertEquals(model.getDirection(6), 0);
+        assertEquals(gst.getCurrentVelocity(6).mag(), 0.0, 0.001);
 
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 50, 50));
-        pos = model.getCurrentPosition(6);
+        SSOModifier.moveSprite(6, 6, 50, 50, sso);
+        updateGST();
+        pos = gst.getCurrentPosition(6);
         assertEquals(pos.x, 50.0, 0.001);
         assertEquals(pos.y, 50.0, 0.001);
-        assertEquals(model.getDirection(6), 2);
+        Pair<Double, Integer> direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 2);
+        assertEquals(direction.getValue0(), Math.PI, 0.001);
 
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 48, 47));
-        assertEquals(model.getDirection(6), 8);      // x movement is below threshold
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 43, 47));
-        assertEquals(model.getDirection(6), 6);
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 47, 42));
-        assertEquals(model.getDirection(6), 1);
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 43, 47));
-        assertEquals(model.getDirection(6), 5);
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 47, 50));
-        assertEquals(model.getDirection(6), 3);
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 47, 55));
-        assertEquals(model.getDirection(6), 4);
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 43, 51));
-        assertEquals(model.getDirection(6), 7);
-        model.updateStatisticsFrom(createNPCObservation(6, 6, 4, 43, 51));
-        assertEquals(model.getDirection(6), 7); // no change
+        SSOModifier.moveSprite(6, 6, 48, 47, sso);
+        updateGST();
+        direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 8);
+
+        SSOModifier.moveSprite(6, 6, 43, 47, sso);
+        updateGST();
+        direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 6);
+        assertEquals(direction.getValue0(), Math.PI / 2.0, 0.001);
+
+        SSOModifier.moveSprite(6, 6, 47, 42, sso);
+        updateGST();
+        direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 1);
+
+        SSOModifier.moveSprite(6, 6, 43, 47, sso);
+        updateGST();
+        direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 5);
+
+        SSOModifier.moveSprite(6, 6, 47, 50, sso);
+        updateGST();
+        pos = gst.getCurrentPosition(6);
+        direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 3);
+
+        SSOModifier.moveSprite(6, 6, 47, 55, sso);
+        updateGST();
+        direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 6);
+        assertEquals(direction.getValue0(), 0.0, 0.001);
+
+        SSOModifier.moveSprite(6, 6, 43, 51, sso);
+        updateGST();
+        direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 7);
+
+        SSOModifier.moveSprite(6, 6, 43, 51, sso);
+        updateGST();
+        direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
+        assertEquals((int) direction.getValue1(), 7);
     }
 
     @Test
     public void applyBehaviourModelToSSO() {
-        SerializableStateObservation sso = SSOModifier.constructEmptySSO();
         sso.NPCPositions = new Observation[2][1];
         sso.NPCPositions[0][0] = createNPCObservation(8, 6, 4, 50, 50);
         sso.NPCPositions[1][0] = createNPCObservation(11, 6, 4, 25, 20);
@@ -156,21 +216,21 @@ public class SimpleSpriteModelTest {
         sso.fromAvatarSpritesPositions = new Observation[1][1];
         sso.fromAvatarSpritesPositions[0][0] = createNPCObservation(60, 6, 6, 0, 20);
         sso.avatarPosition = new double[] {50, 80};
+        gst.update(sso);
 
-        model = new SimpleSpriteModel(10, new int[]{5, 0, 0, 0, 0, 0, 0, 0},0);
-        BehaviourModel turnRight = new SimpleSpriteModel(10, new int[]{0, 500, 0, 0, 0, 0, 0, 0}, 0);
-        BehaviourModel stayStill = new SimpleSpriteModel(10, new int[]{0, 0, 0, 0, 0, 0, 0, 0}, 500);
-
-        model.associateWithSprite(4);
-        turnRight.associateWithSprite(6);
-        stayStill.associateWithSprite(2);
+        model = new SimpleSpriteModel(10, new int[]{5, 0, 0, 0, 0, 0, 0, 0},0, 4);
+        BehaviourModel turnRight = new SimpleSpriteModel(10, new int[]{0, 500, 0, 0, 0, 0, 0, 0}, 0, 6);
+        BehaviourModel stayStill = new SimpleSpriteModel(10, new int[]{0, 0, 0, 0, 0, 0, 0, 0}, 500, 2);
 
         // model will always move forward
-        model.updateModelStatistics(sso);
-        turnRight.updateModelStatistics(sso);
-        stayStill.updateModelStatistics(sso);
+   //     model.updateModelStatistics(gst);
+    //    turnRight.updateModelStatistics(gst);
+    //    stayStill.updateModelStatistics(gst);
+
         // no direction yet established
-        model.apply(sso, null); // should be no change
+        GameStatusTracker gstCopy = new GameStatusTracker(gst);
+        gstCopy.rollForward(model, null); // should be no change
+        sso = gstCopy.getCurrentSSO();
         assertEquals(sso.NPCPositions[0][0].position.x, 50.0, 0.001);
         assertEquals(sso.NPCPositions[0][0].position.y, 50.0, 0.001);
         assertEquals(sso.NPCPositions[1][0].position.x, 25.0, 0.001);
@@ -180,13 +240,17 @@ public class SimpleSpriteModelTest {
         sso.NPCPositions[1][0] = createNPCObservation(11, 6, 4, 15, 10);
         sso.movablePositions[0][0] = createNPCObservation(20, 6,2, 10, 20);
         sso.fromAvatarSpritesPositions[0][0] = createNPCObservation(60, 6, 6, 0, 10);
-        model.updateModelStatistics(sso);
-        turnRight.updateModelStatistics(sso);
-        stayStill.updateModelStatistics(sso);
+     //   model.updateModelStatistics(sso);
+     //   turnRight.updateModelStatistics(sso);
+     //   stayStill.updateModelStatistics(sso);
 
-        model.apply(sso, null); // should now continue in same direction
-        turnRight.apply(sso, null);
-        stayStill.apply(sso, null);
+        List<BehaviourModel> allModels = new ArrayList();
+        allModels.add(model);
+        allModels.add(stayStill);
+        allModels.add(turnRight);
+
+        gstCopy.rollForward(allModels, null); // should be no change
+        sso = gstCopy.getCurrentSSO();
         assertEquals(sso.NPCPositions[0][0].position.x, 50.0, 0.001);
         assertEquals(sso.NPCPositions[0][0].position.y, 70.0, 0.001);
         assertEquals(sso.NPCPositions[1][0].position.x, 5.0, 0.001);

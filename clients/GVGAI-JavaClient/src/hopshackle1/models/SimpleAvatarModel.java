@@ -1,5 +1,6 @@
 package hopshackle1.models;
 
+import hopshackle1.HopshackleUtilities;
 import org.javatuples.*;
 import serialization.*;
 import serialization.Types.*;
@@ -16,7 +17,6 @@ public class SimpleAvatarModel implements BehaviourModel {
     //  5 4 3       direction is one of these numbers - half-right hand turns from straight up
     private int[] xChange = {0, 1, 1, 1, 0, -1, -1, -1, 0};
     private int[] yChange = {-1, -1, 0, 1, 1, 1, 0, -1, 0};
-    private Vector2d currentPosition;   // current Avatar position
 
     public SimpleAvatarModel(int block) {
         blockSize = block;
@@ -34,65 +34,28 @@ public class SimpleAvatarModel implements BehaviourModel {
     }
 
     @Override
-    public void associateWithSprite(int type) {
-        throw new AssertionError("Only applicable for Avatar");
-    }
+    public void updateModelStatistics(GameStatusTrackerWithHistory gst) {
+        List<Pair<Integer, Vector2d>> avatarVelocities = gst.getVelocityTrajectory(0);
+        for (Pair<Integer, Vector2d> point : avatarVelocities) {
+            int tick = point.getValue0();
+            ACTIONS lastMove = gst.getAvatarAction(tick);
+            Vector2d v = point.getValue1();
 
-    @Override
-    public void reset(SerializableStateObservation sso) {
-        double[] pos = sso.getAvatarPosition();
-        currentPosition = new Vector2d(pos[0], pos[1]);
-    }
-
-    @Override
-    public void updateModelStatistics(SerializableStateObservation sso) {
-        double[] pos = sso.getAvatarPosition();
-        ACTIONS lastMove = sso.avatarLastAction;
-        int[] count = counts.get(lastMove);
-        if (currentPosition != null) {
-            double deltaXSquares = (pos[0] - currentPosition.x) / blockSize;
-            double deltaYSquares = (pos[1] - currentPosition.y) / blockSize;
-            int index = 8;
-            if (deltaXSquares > 0.5) {
-                if (deltaYSquares > 0.5) {
-                    index = 3;
-                } else if (deltaYSquares < -0.5) {
-                    index = 1;
-                } else {
-                    index = 2;
-                }
-            } else if (deltaXSquares < -0.5) {
-                if (deltaYSquares > 0.5) {
-                    index = 5;
-                } else if (deltaYSquares < -0.5) {
-                    index = 7;
-                } else {
-                    index = 6;
-                }
+            int[] count = counts.get(lastMove);
+            int heading = HopshackleUtilities.directionOf(v).getValue1();
+            if (v.mag() < blockSize / 2.0) {
+                count[8]++;
             } else {
-                if (deltaYSquares > 0.5) {
-                    index = 4;
-                } else if (deltaYSquares < -0.5) {
-                    index = 0;
-                }
+                count[heading]++;
             }
-            count[index]++;
         }
-        currentPosition = new Vector2d(pos[0], pos[1]);
     }
 
     @Override
-    public void apply(SerializableStateObservation sso, ACTIONS avatarMove) {
-        Vector2d newPosition = nextMoveRandom(0, avatarMove);
-        sso.avatarPosition[0] = newPosition.x;
-        sso.avatarPosition[1] = newPosition.y;
-    }
-
-    @Override
-    public Vector2d nextMoveMAP(int objID, ACTIONS avatarMove) {
+    public Vector2d nextMoveMAP(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
         Vector2d retValue = null;
         double maximum = 0.0;
-        for (Pair<Double, Vector2d> option : nextMovePdf(objID, avatarMove)) {
+        for (Pair<Double, Vector2d> option : nextMovePdf(gst, objID, avatarMove)) {
             if (option.getValue0() > maximum) {
                 maximum = option.getValue0();
                 retValue = option.getValue1();
@@ -102,9 +65,9 @@ public class SimpleAvatarModel implements BehaviourModel {
     }
 
     @Override
-    public Vector2d nextMoveRandom(int objID, ACTIONS avatarMove) {
+    public Vector2d nextMoveRandom(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
         double roll = rnd.nextDouble();
-        for (Pair<Double, Vector2d> option : nextMovePdf(objID, avatarMove)) {
+        for (Pair<Double, Vector2d> option : nextMovePdf(gst, objID, avatarMove)) {
             roll -= option.getValue0();
             if (roll <= 0.0) {
                 return option.getValue1();
@@ -114,15 +77,15 @@ public class SimpleAvatarModel implements BehaviourModel {
     }
 
     @Override
-    public List<Pair<Double, Vector2d>> nextMovePdf(int objID, ACTIONS avatarMove) {
+    public List<Pair<Double, Vector2d>> nextMovePdf(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
         int[] count = counts.get(avatarMove);
         List<Pair<Double, Vector2d>> retValue = new ArrayList();
-
+        Vector2d currentPosition = gst.getCurrentPosition(0);
         double totalCount = 0.0;
         for (int i = 0; i < count.length; i++) {
             totalCount += count[i];
         }
-        // then the possibility of each turn
+        // then the possibility of each move
         for (int i = 0; i < 9; i++) {
             if (count[i] > 0) {
                 double p = (double) count[i] / totalCount;
@@ -134,5 +97,10 @@ public class SimpleAvatarModel implements BehaviourModel {
         }
 
         return retValue;
+    }
+
+    @Override
+    public boolean isValidFor(GameStatusTracker gst, int id) {
+        return (id == 0);
     }
 }

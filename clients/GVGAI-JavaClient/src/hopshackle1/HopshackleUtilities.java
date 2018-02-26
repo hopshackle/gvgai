@@ -4,6 +4,9 @@ import java.io.*;
 import java.util.*;
 import java.util.logging.Logger;
 
+import org.javatuples.*;
+import serialization.*;
+
 public class HopshackleUtilities {
 
     protected static Logger logger = Logger.getLogger("hopshackle.simulation");
@@ -274,5 +277,20 @@ public class HopshackleUtilities {
             throw new AssertionError("Invalid pdf");
         }
         return outputs;
+    }
+
+    public static Pair<Double, Integer> directionOf(Vector2d v) {
+        double theta = (v.theta() + 5.0 * Math.PI / 2.0) ;
+        // we now break this into eight Pi/4 chunks, with each centred at N, NE, E .. etc
+        // We subtract Pi / 8 so that we centre each quadrant
+        int rightHandTurns = ((int) ((theta + 0.125 * Math.PI) / (Math.PI / 4.0))) % 8;
+        Pair<Double, Integer> retValue = new Pair(theta % (2.0 * Math.PI), rightHandTurns);
+        return retValue;
+    }
+
+    public static Vector2d thetaToUnitVector(double theta) {
+        double x = Math.cos(theta);
+        double y = Math.sin(theta);
+        return new Vector2d(x, y);
     }
 }

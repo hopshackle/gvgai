@@ -57,7 +57,7 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
             currentIndex = (currentIndex + 1) % nStepReward;
 
             if (debug) {
-                double startValue = QFunction.value(previous.startSSO, previous.action);
+                double startValue = QFunction.value(previous.startGST.getCurrentSSO(), previous.action);
                 logFile.log(String.format("Ref: %d Action: %s StartValue: %.2f Reward %.2f NextAction: %s NextValue: %.2f Target: %.2f",
                         previous.ref, previous.action, startValue, runningRewardSum, bestAction.action, bestAction.value, target));
                 logFile.flush();

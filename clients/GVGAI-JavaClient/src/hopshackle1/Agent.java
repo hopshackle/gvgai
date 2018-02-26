@@ -30,11 +30,12 @@ public class Agent extends utils.AbstractPlayer {
     public double gamma = 0.95;
     public double alpha = 0.001;
     public double lambda = 0.0001;
-    private double gameWinBonus = 100.0;
+    private double gameWinBonus = 10.0;
     private EntityLog logFile;
     private boolean debug = false;
     private ActionValueFunctionApproximator QFunction;
     private BehaviourModel model;
+    private GameStatusTrackerWithHistory gst;
     private Map<Integer, Pair<Integer, Double>> accuracyTracker;
     private RLTargetCalculator rewardCalculator;
     private ReinforcementLearningAlgorithm rl;
@@ -69,7 +70,9 @@ public class Agent extends utils.AbstractPlayer {
 
         //QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
         model = new BehaviouralLookaheadFunction();
-        QFunction = new LookaheadLinearActionValue(featureSets, gamma, debug, (LookaheadFunction) model);
+        LookaheadLinearActionValue qf =  new LookaheadLinearActionValue(featureSets, gamma, debug, (LookaheadFunction) model);
+        qf.setDefaultFeatureCoefficient(10.0);
+        QFunction = qf;
         rewardCalculator = new QLearning(1, alpha, gamma, lambda, QFunction);
         policy = new BoltzmannPolicy(QFunction, 0.1);
         rl = (QLearning) rewardCalculator;
@@ -87,10 +90,10 @@ public class Agent extends utils.AbstractPlayer {
     public void init(SerializableStateObservation sso, ElapsedCpuTimer elapsedTimer) {
         currentTrajectory = new LinkedList<>();
         if (debug) logFile.log("Initialising new trajectory");
-        if (model != null)
-            model.reset(sso);
         accuracyTracker = new HashMap();
         newFeaturesInEpisode = 0;
+        gst = new GameStatusTrackerWithHistory();
+        gst.update(sso);
     }
 
 
@@ -109,17 +112,14 @@ public class Agent extends utils.AbstractPlayer {
         double new_score = sso.gameScore;
         double reward = calculateReward(sso);
 
-        if (model != null) {
-            model.updateModelStatistics(sso);
-        }
-
         if (last_state_ != null) {
-            SARTuple tuple = new SARTuple(last_state_, sso, last_action_, lastAvailableActions, sso.availableActions, reward);
+            SARTuple tuple = new SARTuple(gst, sso, last_action_, lastAvailableActions, sso.availableActions, reward);
             currentTrajectory.add(tuple);
             if (debug) {
                 logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f", tuple.ref, last_action_, reward));
             }
         }
+        gst.update(sso);
 
         if (model != null) {
             // score the result of our predictions
@@ -141,7 +141,7 @@ public class Agent extends utils.AbstractPlayer {
             for (Pair<Integer, Integer> s : allSprites) {
                 int spriteID = s.getValue0();
                 Vector2d currentPosition = SSOModifier.positionOf(spriteID, sso);
-                List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(spriteID, sso.avatarLastAction);
+                List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(gst, spriteID, sso.avatarLastAction);
                 predictions.put(spriteID, pdf);
                 if (debug) {
                     StringBuilder msg = new StringBuilder(String.format("T:%d ID:%d at %s\n", s.getValue1(), spriteID, currentPosition.toString()));
@@ -197,12 +197,17 @@ public class Agent extends utils.AbstractPlayer {
 
         // add final state to trajectory
         double reward = calculateReward(sso);
-        SARTuple tuple = new SARTuple(last_state_, sso, last_action_, lastAvailableActions, new ArrayList(), reward);
+        SARTuple tuple = new SARTuple(gst, sso, last_action_, lastAvailableActions, new ArrayList(), reward);
         currentTrajectory.add(tuple);
         if (debug) {
             logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f and final score %.2f", tuple.ref, last_action_, reward, sso.gameScore));
             logFile.log("End of game.");
         }
+
+        gst.update(sso);
+        if (model != null)
+            model.updateModelStatistics(gst);
+
         Map<Types.ACTIONS, Integer> actionCounts = new HashMap();
         for (SARTuple exp : currentTrajectory) {
             int oldCount = actionCounts.getOrDefault(exp.action, 0);

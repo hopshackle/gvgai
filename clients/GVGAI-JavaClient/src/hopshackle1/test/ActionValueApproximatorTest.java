@@ -23,6 +23,7 @@ public class ActionValueApproximatorTest {
     SerializableStateObservation sso, nextSSO;
     final SerializableStateObservation empty = SSOModifier.constructEmptySSO();
     List<ACTIONS> allActions;
+    GameStatusTrackerWithHistory gst;
     ReinforcementLearningAlgorithm dummy = new ReinforcementLearningAlgorithm() {
         @Override
         public double learningRate() {
@@ -44,8 +45,8 @@ public class ActionValueApproximatorTest {
         independent = new IndependentLinearActionValue(features, 0.9, false);
         lookahead = new LookaheadLinearActionValue(features, 0.9, false, new LookaheadFunction() {
             @Override
-            public SerializableStateObservation rollForward(SerializableStateObservation sso, ACTIONS action) {
-                return sso;
+            public SerializableStateObservation rollForward(GameStatusTracker gst, ACTIONS action) {
+                return gst.getCurrentSSO();
             }
         });
         stateOnly = new LinearValueFunction(features, "ENTROPY", 100, 0.9, false);
@@ -60,6 +61,9 @@ public class ActionValueApproximatorTest {
         sso.NPCPositions[0][0] = SSOModifier.createObservation(1, 2, 3, 40, 40);
         sso.movablePositions[0][0] = SSOModifier.createObservation(2, 3, 13, 50, 40);
         sso.movablePositions[0][1] = SSOModifier.createObservation(3, 3, 13, 60, 40);
+
+        gst = new GameStatusTrackerWithHistory();
+        gst.update(sso);
 
         nextSSO = SSOModifier.constructEmptySSO();
         nextSSO.NPCPositions = new Observation[1][1];
@@ -124,7 +128,7 @@ public class ActionValueApproximatorTest {
         assertEquals(stateOnly.value(sso), 3.0, 0.001);
         assertEquals(lookahead.value(sso), 0.5, 0.001);
 
-        SARTuple trainingInstance = new SARTuple(sso, nextSSO, ACTIONS.ACTION_LEFT, allActions, allActions, 1.0);
+        SARTuple trainingInstance = new SARTuple(gst, nextSSO, ACTIONS.ACTION_LEFT, allActions, allActions, 1.0);
         trainingInstance.target = 1.0;
 
         independent.learnValueFrom(trainingInstance, dummy);
@@ -171,7 +175,7 @@ public class ActionValueApproximatorTest {
         assertEquals(independent.value(sso, ACTIONS.ACTION_NIL), 0.0, 0.001);
         assertEquals(independent.value(sso, ACTIONS.ACTION_ESCAPE), -1.0, 0.001);
 
-        SARTuple trainingInstance = new SARTuple(sso, nextSSO, ACTIONS.ACTION_ESCAPE, allActions, allActions, 1.0);
+        SARTuple trainingInstance = new SARTuple(gst, nextSSO, ACTIONS.ACTION_ESCAPE, allActions, allActions, 1.0);
         trainingInstance.target = 1.0;
 
         independent.learnFrom(trainingInstance, dummy);

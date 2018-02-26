@@ -36,15 +36,15 @@ public class Reinforce implements Policy, Trainable {
 
     @Override
     public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
-        double[] actionPDF = choicePolicy.pdfOver(tuple.startSSO, tuple.availableStartActions);
-        State startState = coeffs.calculateState(tuple.startSSO);
+        double[] actionPDF = choicePolicy.pdfOver(tuple.startGST.getCurrentSSO(), tuple.availableStartActions);
+        State startState = coeffs.calculateState(tuple.startGST.getCurrentSSO());
 
         int[] indicesToCoefficientsForAvailableActions = new int[tuple.availableStartActions.size()];
         for (int i = 0; i < indicesToCoefficientsForAvailableActions.length; i++) {
             indicesToCoefficientsForAvailableActions[i] = coeffs.getIndexFor(tuple.availableStartActions.get(i));
         }
         int indexToPDFForAction = tuple.availableStartActions.indexOf(tuple.action);
-        double baseline = useValueFunctionAsBaseline ? coeffs.value(tuple.startSSO) : 0.00;
+        double baseline = useValueFunctionAsBaseline ? coeffs.value(tuple.startGST.getCurrentSSO()) : 0.00;
         double target = tuple.reward - baseline;
 
         if (fullDebug) {

@@ -11,6 +11,7 @@ public class SSOModifier {
     public static SerializableStateObservation constructEmptySSO() {
         SerializableStateObservation sso = new SerializableStateObservation();
         sso.blockSize = 10;
+        sso.avatarLastAction = Types.ACTIONS.ACTION_NIL;
         sso.worldDimension = new double[]{100.0, 100.0};
         sso.NPCPositions = new Observation[0][0];
         sso.movablePositions = new Observation[0][0];

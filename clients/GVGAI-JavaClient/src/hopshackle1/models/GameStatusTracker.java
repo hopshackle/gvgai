@@ -1,6 +1,7 @@
 package hopshackle1.models;
 
 import serialization.*;
+import serialization.Types.*;
 import hopshackle1.*;
 
 import java.util.*;
@@ -12,51 +13,67 @@ public class GameStatusTracker {
     //  6 - 2
     //  5 4 3       direction change is one of these numbers - half-right hand turns from straight up
 
-    private int blockSize;
+    private int blockSize = -1;
     private int currentTick;
-    private Map<Integer, List<Pair<Integer, Vector2d>>> trajectories = new HashMap(); // full trajectories for each sprite, by tick number
-    private Map<Integer, Vector2d> currentPositions = new HashMap(); // last position for each tracked sprite
+    private double[] worldDimension = new double[2];
+    protected Map<Integer, Vector2d> currentPositions = new HashMap(); // last position for each tracked sprite
+    private Map<Integer, Vector2d> currentVelocities = new HashMap(); // last known move direction for each tracked sprite
     private Map<Integer, Pair<Integer, Integer>> IDToCategoryAndType = new HashMap();
-    private Map<Integer, Vector2d> avatarTrajectory = new HashMap();
-    private Map<Integer, Pair<Integer, Integer>> lifeSpan = new HashMap();
+    private Set<Pair<Integer, Integer>> currentCollisions = new HashSet();
+    private SerializableStateObservation currentSSO;
 
-    public GameStatusTracker(SerializableStateObservation sso) {
-        blockSize = sso.blockSize;
-        currentTick = sso.gameTick;
+    public GameStatusTracker() {
+
+    }
+
+    public GameStatusTracker(GameStatusTracker gst) {
+        currentSSO = SSOModifier.copy(gst.currentSSO);
+        blockSize = gst.blockSize;
+        currentTick = gst.currentTick;
+        worldDimension = gst.worldDimension;
+        currentPositions = HopshackleUtilities.cloneMap(gst.currentPositions);
+        currentVelocities = HopshackleUtilities.cloneMap(gst.currentVelocities);
+        IDToCategoryAndType = HopshackleUtilities.cloneMap(gst.IDToCategoryAndType);
+        detectCollisions();
     }
 
     /*
     This assumes the provided SerializableStateObservation is the next one in sequence
      */
     public void update(SerializableStateObservation sso) {
-        if (sso.gameTick - currentTick > 1)
-            throw new AssertionError("We expect to have every game tick registered. Actual difference is " + (sso.gameTick - currentTick));
+
+        if (blockSize == -1) {
+            blockSize = sso.blockSize;
+            worldDimension[0] = sso.worldDimension[0];
+            worldDimension[1] = sso.worldDimension[1];
+            IDToCategoryAndType.put(0, new Pair(SSOModifier.TYPE_AVATAR, sso.avatarType));
+        } else {
+            if (sso.gameTick - currentTick > 1)
+                throw new AssertionError("We expect to have every game tick registered. Actual difference is " + (sso.gameTick - currentTick));
+        }
+
+        Vector2d lastAvatarPos = currentPositions.get(0);
         currentTick = sso.gameTick;
-        avatarTrajectory.put(currentTick, new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]));
+        Vector2d newAvatarPos = new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
         currentPositions.put(0, new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]));
+        Vector2d avatarVelocity = (lastAvatarPos == null) ? new Vector2d(0, 0) : new Vector2d(newAvatarPos).subtract(lastAvatarPos);
+        currentVelocities.put(0, avatarVelocity);
 
         Set<Integer> allCurrentIDs = new HashSet();
+        if (sso.isAvatarAlive) allCurrentIDs.add(0);
         for (int i = 1; i <= 6; i++) {
             List<Pair<Integer, Integer>> sprites = SSOModifier.getSpritesOfCategory(i, sso);
             for (Pair<Integer, Integer> sprite : sprites) {
                 int id = sprite.getValue0();
                 int type = sprite.getValue1();
                 allCurrentIDs.add(id);
+                Vector2d lastPos = currentPositions.getOrDefault(id, null);
                 Vector2d currentPos = SSOModifier.positionOf(id, sso);
+                Vector2d velocity = lastPos == null ? new Vector2d(0, 0) : new Vector2d(currentPos).subtract(lastPos);
                 currentPositions.put(id, currentPos);
-                List<Pair<Integer, Vector2d>> traj = new ArrayList();
+                currentVelocities.put(id, velocity);
                 if (!IDToCategoryAndType.containsKey(id)) {
                     IDToCategoryAndType.put(id, new Pair(i, type));
-                    traj.add(new Pair(currentTick, currentPos));
-                    trajectories.put(id, traj);
-                    lifeSpan.put(id, new Pair(currentTick, -1));
-                }
-                // we always track starting position - but we currently assume that only the types below can move
-                if (i == SSOModifier.TYPE_NPC || 1 == SSOModifier.TYPE_MOVABLE || i == SSOModifier.TYPE_FROMAVATAR) {
-                    if (trajectories.containsKey(id)) {
-                        traj = trajectories.get(id);
-                        traj.add(new Pair(currentTick, currentPos));
-                    }
                 }
             }
         }
@@ -65,37 +82,138 @@ public class GameStatusTracker {
         for (int id : currentPositions.keySet()) {
             if (!allCurrentIDs.contains(id)) {
                 // has vanished
-                lifeSpan.put(id, new Pair(lifeSpan.get(id).getValue0(), currentTick));
                 idsToRemove.add(id);
             }
         }
         for (Integer id : idsToRemove) {
             currentPositions.remove(id);
+            currentVelocities.remove(id);
         }
+        currentSSO = sso;
     }
 
-    public List<Pair<Integer, Vector2d>> getTrajectory(int id) {
-        List<Pair<Integer, Vector2d>>  retValue = trajectories.getOrDefault(id, new ArrayList());
-        return HopshackleUtilities.cloneList(retValue);
-    }
 
     public Vector2d getCurrentPosition(int id) {
         return currentPositions.getOrDefault(id, null);
     }
+
+    public Vector2d getCurrentVelocity(int id) {
+        return currentVelocities.getOrDefault(id, null);
+    }
+
     public boolean isExtant(int id) {
         return currentPositions.containsKey(id);
     }
+
     public int getCategory(int id) {
         Pair<Integer, Integer> temp = IDToCategoryAndType.getOrDefault(id, new Pair(-1, -1));
         return temp.getValue0();
     }
+
     public int getType(int id) {
         Pair<Integer, Integer> temp = IDToCategoryAndType.getOrDefault(id, new Pair(-1, -1));
         return temp.getValue1();
     }
-    public Pair<Integer, Integer> getLifeSpan(int id) {
-        return lifeSpan.getOrDefault(id, new Pair(0, 0));
+
+    public List<Integer> getAllSpritesOfType(int type) {
+        List<Integer> retValue = new ArrayList();
+        for (Integer id : IDToCategoryAndType.keySet()) {
+            if (IDToCategoryAndType.get(id).getValue1() == type)
+                retValue.add(id);
+        }
+        return retValue;
     }
-    public int getCurrentTick() {return currentTick;}
-    public int getBlockSize() {return blockSize;}
+
+    public List<Integer> getAllSpritesOfCategory(int category) {
+        List<Integer> retValue = new ArrayList();
+        for (Integer id : IDToCategoryAndType.keySet()) {
+            if (IDToCategoryAndType.get(id).getValue0() == category)
+                retValue.add(id);
+        }
+        return retValue;
+    }
+
+    public int getCurrentTick() {
+        return currentTick;
+    }
+
+    public int getBlockSize() {
+        return blockSize;
+    }
+
+    public Set<Pair<Integer, Integer>> detectCollisions() {
+        // for the moment we define a collision as two sprites sharing a block
+        // we then generate a list of colliding sprites
+
+        // we have the position of each sprite ... do we just generate an Observation Grid, and then look for overlaps?
+        // in this case though, we just add the id of the sprites
+
+        List<Integer>[][] wipObsGrid = new ArrayList[(int) (worldDimension[0] / blockSize)][(int) (worldDimension[1] / blockSize)];
+        // we need to construct a temporary grid that we can then update
+        for (int i = 0; i < wipObsGrid.length; i++) {
+            for (int j = 0; j < wipObsGrid[i].length; j++) {
+                wipObsGrid[i][j] = new ArrayList();
+            }
+        }
+
+        for (Integer id : currentPositions.keySet()) {
+            Vector2d position = currentPositions.get(id);
+            int x = (int) position.x / blockSize;
+            boolean validX = x >= 0 && x < wipObsGrid.length;
+            boolean xPlus = (position.x % blockSize) > 0 && (x + 1 < wipObsGrid.length);
+            int y = (int) position.y / blockSize;
+            boolean validY = y >= 0 && y < wipObsGrid[0].length;
+            boolean yPlus = (position.y % blockSize) > 0 && (y + 1 < wipObsGrid[0].length);
+
+            if (validX && validY) {
+                wipObsGrid[x][y].add(id);
+                if (xPlus)
+                    wipObsGrid[x + 1][y].add(id);
+                if (yPlus)
+                    wipObsGrid[x][y + 1].add(id);
+                if (xPlus && yPlus)
+                    wipObsGrid[x + 1][y + 1].add(id);
+            }
+        }
+        currentCollisions = new HashSet();
+        for (int i = 0; i < wipObsGrid.length; i++) {
+            for (int j = 0; j < wipObsGrid[i].length; j++) {
+                if (wipObsGrid[i][j].size() > 1) {
+                    List<Integer> spritesPresent = wipObsGrid[i][j];
+                    for (Integer id1 : spritesPresent) {
+                        for (Integer id2 : spritesPresent) {
+                            if (id1 != id2)
+                                currentCollisions.add(new Pair(id1, id2));
+                        }
+                    }
+                }
+            }
+        }
+        return currentCollisions;
+    }
+
+
+    public void rollForward(List<BehaviourModel> models, ACTIONS avatarMove) {
+        SerializableStateObservation forwardStep = SSOModifier.copy(currentSSO);
+        forwardStep.gameTick++;
+        forwardStep.avatarLastAction = avatarMove == null ? ACTIONS.ACTION_NIL : avatarMove;
+        for (BehaviourModel model : models) {
+            for (Integer id : currentPositions.keySet()) {
+                if (model.isValidFor(this, id)) {
+                    Vector2d move = model.nextMoveRandom(this, id, avatarMove);
+                    SSOModifier.moveSprite(id, getCategory(id), move.x, move.y, forwardStep);
+                }
+            }
+        }
+        update(forwardStep);
+    }
+
+    public void rollForward(BehaviourModel model, ACTIONS avatarMove) {
+        rollForward(HopshackleUtilities.listFromInstance(model), avatarMove);
+    }
+
+    public SerializableStateObservation getCurrentSSO() {
+        return currentSSO;
+    }
+
 }

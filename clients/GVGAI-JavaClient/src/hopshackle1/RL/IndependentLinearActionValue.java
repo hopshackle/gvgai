@@ -2,6 +2,7 @@ package hopshackle1.RL;
 
 import hopshackle1.*;
 import hopshackle1.FeatureSets.FeatureSet;
+import hopshackle1.models.GameStatusTracker;
 import serialization.SerializableStateObservation;
 import serialization.Types.*;
 
@@ -15,6 +16,7 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
     private boolean debug;
     private EntityLog logFile;
     private FeatureSet[] featureSets;
+    private double defaultFeatureCoefficient;
 
     public IndependentLinearActionValue(List<FeatureSet> features, double discountRate, boolean debug) {
         gamma = discountRate;
@@ -65,7 +67,7 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
     public double getCoeffFor(int index, int feature) {
         Map<Integer, Double> actionCoeffs = coefficients.get(index);
         if (!actionCoeffs.containsKey(feature)) {
-            actionCoeffs.put(feature, 0.0);
+            actionCoeffs.put(feature, defaultFeatureCoefficient);
         }
         return actionCoeffs.get(feature);
     }
@@ -113,6 +115,11 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
         return value(state, action);
     }
 
+    @Override
+    public double value(GameStatusTracker gst, ACTIONS action) {
+        return value(gst.getCurrentSSO(), action);
+    }
+
     private double value(State state, ACTIONS action) {
         double retValue = 0;
         int index = getIndexFor(action);
@@ -128,6 +135,11 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
             logFile.flush();
         }
         return retValue;
+    }
+
+    @Override
+    public ActionValue valueOfBestAction(GameStatusTracker gst, List<ACTIONS> actions) {
+        return valueOfBestAction(gst.getCurrentSSO(), actions);
     }
 
 
@@ -149,7 +161,7 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
 
     @Override
     public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
-        State state = calculateState(tuple.startSSO);
+        State state = calculateState(tuple.startGST.getCurrentSSO());
         int actionIndex = getIndexFor(tuple.action);
         double currentValuation = value(state, tuple.action);
 
@@ -158,7 +170,7 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
     }
 
     public void learnValueFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
-        State state = calculateState(tuple.startSSO);
+        State state = calculateState(tuple.startGST.getCurrentSSO());
         int actionIndex = 0;
         double currentValuation = value(state);
         double delta = tuple.target - currentValuation;
@@ -172,6 +184,10 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
             double newValue = (1.0 - rl.regularisation()) * (currentValue + (rl.learningRate() * fValue * delta));
             setCoeffFor(actionIndex, f, newValue);
         }
+    }
+
+    public void setDefaultFeatureCoefficient(double newValue) {
+        defaultFeatureCoefficient = newValue;
     }
 }
 

@@ -17,7 +17,7 @@ public class TestLearningClient
     {
         assert (CompetitionParameters.USE_SOCKETS);
         /** Init params */
-        int gameId = 0;
+        int gameId = 39;
         String shDir = "./src/utils";
         String serverDir;
         String serverJar = "";
@@ -29,7 +29,7 @@ public class TestLearningClient
             serverDir = "../..";
         }
         String agentName = "hopshackle1.Agent";         //Agent to play with
-        boolean visuals = true;
+        boolean visuals = false;
         /** Get arguments */
         Map<String, List<String>> params = new HashMap<>();
         List<String> options = null;

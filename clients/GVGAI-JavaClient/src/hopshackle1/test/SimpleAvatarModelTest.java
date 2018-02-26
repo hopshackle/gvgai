@@ -12,74 +12,78 @@ public class SimpleAvatarModelTest {
 
     SerializableStateObservation baseSSO;
     SimpleAvatarModel model = new SimpleAvatarModel(10);
+    GameStatusTrackerWithHistory gst;
 
 
     @Before
     public void setup() {
         baseSSO = SSOModifier.constructEmptySSO();
         baseSSO.avatarPosition = new double[] {35, 40};
-        model.updateModelStatistics(baseSSO);
+        gst = new GameStatusTrackerWithHistory();
+        gst.update(baseSSO);
     }
 
     @Test
     public void defaultChangeForEachAction() {
         // apply to an sso for each ACTION, and confirm the result is as expected before observing data
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_LEFT);
-        assertEquals(baseSSO.avatarPosition[0], 25.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_NIL);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_ESCAPE);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_RIGHT);
-        assertEquals(baseSSO.avatarPosition[0], 45.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_DOWN);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 50.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_UP);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 30.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_USE);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 40.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_LEFT);
+        assertEquals(gst.getCurrentPosition(0).x, 25.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 40.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_NIL);
+        assertEquals(gst.getCurrentPosition(0).x, 25.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 40.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_ESCAPE);
+        assertEquals(gst.getCurrentPosition(0).x, 25.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 40.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_RIGHT);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 40.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_DOWN);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 50.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_UP);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 40.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_USE);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 40.0, 0.001);
     }
 
     @Test
     public void defaultUpdatedWithData() {
         SerializableStateObservation newSSO = SSOModifier.copy(baseSSO);
         for (int i = 0; i < 200; i++) {
+            newSSO.gameTick++;
             newSSO.avatarLastAction = ACTIONS.ACTION_LEFT;
             newSSO.avatarPosition[1] = (newSSO.avatarPosition[1] + 10) % 100; // move down instead of left, and then loop
-            model.updateModelStatistics(newSSO);
+            gst.update(newSSO);
         }
+        model.updateModelStatistics(gst);
         // only item that has changed below is for ACTION_LEFT compared to defaultChangeForEachAction()
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_LEFT);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 50.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_NIL);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_ESCAPE);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_RIGHT);
-        assertEquals(baseSSO.avatarPosition[0], 45.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_DOWN);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 50.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_UP);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 30.0, 0.001);
-        model.apply(baseSSO, ACTIONS.ACTION_USE);
-        assertEquals(baseSSO.avatarPosition[0], 35.0, 0.001);
-        assertEquals(baseSSO.avatarPosition[1], 40.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 40.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_LEFT);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 50.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_NIL);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 50.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_ESCAPE);
+        assertEquals(gst.getCurrentPosition(0).x, 35.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 50.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_RIGHT);
+        assertEquals(gst.getCurrentPosition(0).x, 45.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 50.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_DOWN);
+        assertEquals(gst.getCurrentPosition(0).x, 45.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 60.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_UP);
+        assertEquals(gst.getCurrentPosition(0).x, 45.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 50.0, 0.001);
+        gst.rollForward(model, ACTIONS.ACTION_USE);
+        assertEquals(gst.getCurrentPosition(0).x, 45.0, 0.001);
+        assertEquals(gst.getCurrentPosition(0).y, 50.0, 0.001);
     }
 }

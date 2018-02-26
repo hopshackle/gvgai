@@ -2,6 +2,7 @@ package hopshackle1.RL;
 
 import hopshackle1.*;
 import hopshackle1.FeatureSets.FeatureSet;
+import hopshackle1.models.GameStatusTracker;
 import serialization.*;
 import serialization.Types.*;
 import java.util.*;
@@ -43,6 +44,10 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
     public double value(SerializableStateObservation sso, ACTIONS a) {
         throw new AssertionError("No point asking for an Action Value from a State Value function");
     }
+    @Override
+    public double value(GameStatusTracker gst, ACTIONS a) {
+        throw new AssertionError("No point asking for an Action Value from a State Value function");
+    }
 
     @Override
     public double value(SerializableStateObservation sso) {
@@ -51,6 +56,10 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
 
     @Override
     public ActionValue valueOfBestAction(SerializableStateObservation s, List<ACTIONS> actions) {
+        throw new AssertionError("No point asking for an Action Value from a State Value function");
+    }
+    @Override
+    public ActionValue valueOfBestAction(GameStatusTracker gst, List<ACTIONS> actions) {
         throw new AssertionError("No point asking for an Action Value from a State Value function");
     }
 
@@ -69,7 +78,7 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
         List<Integer> featuresInOrder = new ArrayList(State.getHighestIndex() + 1);
         for (int i = 0; i < Y.length; i++) {
             SARTuple tuple = trajectory.get(i);
-            State state = calculateState(tuple.startSSO);
+            State state = calculateState(tuple.startGST.getCurrentSSO());
             List<Integer> features = HopshackleUtilities.convertSetToList(state.features.keySet());
             for (int j = 0; j < features.size(); j++) {
                 int feature = features.get(j);

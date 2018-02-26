@@ -1,5 +1,6 @@
 package hopshackle1.models;
 
+import hopshackle1.HopshackleUtilities;
 import serialization.*;
 import org.javatuples.*;
 
@@ -18,16 +19,17 @@ public class SimpleSpriteModel implements BehaviourModel {
     // We encode a turn as the number of half right turns compared to last known direction
     private int[] xChange = {0, 1, 1, 1, 0, -1, -1, -1};
     private int[] yChange = {-1, -1, 0, 1, 1, 1, 0, -1};
-    private Map<Integer, Integer> lastDirection = new HashMap(); // last known move direction for each tracked sprite
-    private Map<Integer, Vector2d> currentPositions = new HashMap(); // last known position for each tracked sprite
+    public static final Vector2d stationary = new Vector2d(0, 0);
 
-    public SimpleSpriteModel(int block) {
+
+    public SimpleSpriteModel(int block, int spriteType) {
         staticCount = 5;
         totalCount = 5;
+        this.spriteType = spriteType;
         blockSize = block;
     }
 
-    public SimpleSpriteModel(int block, int[] countData, int stationaryCount) {
+    public SimpleSpriteModel(int block, int[] countData, int stationaryCount, int type) {
         blockSize = block;
         if (countData.length != 8)
             throw new AssertionError("CountData must have length of 8 in SimpleSpriteModel");
@@ -36,62 +38,19 @@ public class SimpleSpriteModel implements BehaviourModel {
             totalCount += countData[i];
         }
         staticCount = stationaryCount;
+        spriteType = type;
     }
 
     public void setRandom(Random newR) {
         rnd = newR;
     }
 
-    @Override
-    public void associateWithSprite(int type) {
-        if (spriteType != -1)
-            throw new AssertionError("Not yet implemented");
-        spriteType = type;
-    }
 
     @Override
-    public void reset(SerializableStateObservation sso) {
-        lastDirection = new HashMap();
-        currentPositions = new HashMap();
-        updateModelStatistics(sso);
-    }
-
-    @Override
-    public void apply(SerializableStateObservation sso, Types.ACTIONS avatarMove) {
-        // we need to update the position of each sprite type that we model
-
-        // statistics are maintained on the basis that we see a sequence of frames from the same game
-        // when we get an sso here, it may not be the same as from that game...so do we want to use currentPosition?
-
-        // we may just have to assume that the currentPos and directions are correct for *our* spriteType (although others may have been changed)
-        // we could then roll forward beyond one step, but we'd have to feed in the updated sso to all the BehaviouralModels for them to
-        // update their statistics and histories.
-        // A central problem is that the SSO does not include a record of the last direction moved, which we need
-
-        updateObservations(sso.getNPCPositions(), avatarMove);
-        updateObservations(sso.getMovablePositions(), avatarMove);
-        updateObservations(sso.getFromAvatarSpritesPositions(), avatarMove);
-    }
-
-    private void updateObservations(Observation[][] observations, Types.ACTIONS move) {
-        if (observations == null) return;
-        for (Observation[] npc : observations) {
-            for (Observation obs : npc) {
-                if (obs.itype == spriteType && lastDirection.containsKey(obs.obsID)) {
-                    // one of ours
-                    Vector2d newPos = nextMoveRandom(obs.obsID, move);
-                    obs.position = newPos;
-                }
-            }
-        }
-    }
-
-
-    @Override
-    public Vector2d nextMoveMAP(int objID, Types.ACTIONS move) {
+    public Vector2d nextMoveMAP(GameStatusTracker gst, int objID, Types.ACTIONS move) {
         Vector2d retValue = null;
         double maximum = 0.0;
-        for (Pair<Double, Vector2d> option : nextMovePdf(objID, move)) {
+        for (Pair<Double, Vector2d> option : nextMovePdf(gst, objID, move)) {
             if (option.getValue0() > maximum) {
                 maximum = option.getValue0();
                 retValue = option.getValue1();
@@ -101,9 +60,9 @@ public class SimpleSpriteModel implements BehaviourModel {
     }
 
     @Override
-    public Vector2d nextMoveRandom(int objID, Types.ACTIONS move) {
+    public Vector2d nextMoveRandom(GameStatusTracker gst, int objID, Types.ACTIONS move) {
         double roll = rnd.nextDouble();
-        for (Pair<Double, Vector2d> option : nextMovePdf(objID, move)) {
+        for (Pair<Double, Vector2d> option : nextMovePdf(gst, objID, move)) {
             roll -= option.getValue0();
             if (roll <= 0.0) {
                 return option.getValue1();
@@ -113,23 +72,22 @@ public class SimpleSpriteModel implements BehaviourModel {
     }
 
     @Override
-    public List<Pair<Double, Vector2d>> nextMovePdf(int objID, Types.ACTIONS move) {
-        int heading = lastDirection.getOrDefault(objID, 0);
+    public List<Pair<Double, Vector2d>> nextMovePdf(GameStatusTracker gst, int objID, Types.ACTIONS move) {
+        Vector2d heading = gst.getCurrentVelocity(objID);
         List<Pair<Double, Vector2d>> retValue = new ArrayList();
         // first the possibility of not moving
         double p = (double) staticCount / totalCount;
-        Vector2d currentPos = getCurrentPosition(objID);
+        Vector2d currentPos = gst.getCurrentPosition(objID);
         Pair<Double, Vector2d> option = new Pair(p, currentPos);
         retValue.add(option);
 
         // then the possibility of each turn
         for (int i = 0; i < 8; i++) {
             if (counts[i] > 0) {
+                double theta = i * Math.PI / 4.0 + heading.theta();
+                Vector2d newHeading = new Vector2d(Math.cos(theta), Math.sin(theta));
                 p = (double) counts[i] / totalCount;
-                int newAbsoluteHeading = (i + heading) % 8;
-                double new_x = currentPos.x + blockSize * xChange[newAbsoluteHeading];
-                double new_y = currentPos.y + blockSize * yChange[newAbsoluteHeading];
-                option = new Pair(p, new Vector2d(new_x, new_y));
+                option = new Pair(p, newHeading.mul(blockSize).add(currentPos));
                 retValue.add(option);
             }
         }
@@ -137,88 +95,36 @@ public class SimpleSpriteModel implements BehaviourModel {
         return retValue;
     }
 
-    public Vector2d getCurrentPosition(int objID) {
-        if (currentPositions.containsKey(objID))
-            return currentPositions.get(objID);
-        throw new AssertionError("Sprite " + objID + " not found in current state");
-    }
+    @Override
+    public void updateModelStatistics(GameStatusTrackerWithHistory gst) {
+        // we need to run through every sprite of the relevant type, and determine how it moved
 
-    public int getDirection(int objID) {
-        return lastDirection.getOrDefault(objID, 0);
+        List<Integer> allSprites = gst.getAllSpritesOfType(spriteType);
+        for (int id : allSprites) {
+            List<Pair<Integer, Vector2d>> velocities = gst.getVelocityTrajectory(id);
+            Vector2d lastV = stationary;
+            for (Pair<Integer, Vector2d> point : velocities) {
+                Vector2d v = point.getValue1();
+                if (v.equals(stationary)) {
+                    staticCount++;
+                } else if (lastV.equals(stationary)) {
+                    // which indicates we are now moving from a cold start, which we treat as 'geradeaus'
+                    counts[0]++;
+                } else {
+                    Vector2d delV = new Vector2d(v).subtract(lastV);
+                    int heading = HopshackleUtilities.directionOf(delV).getValue1();
+                    counts[heading]++;
+                }
+                if (!v.equals(stationary)) // we update last known direction only if we moved
+                    lastV = v;
+                totalCount++;
+            }
+        }
     }
 
     @Override
-    public void updateModelStatistics(SerializableStateObservation sso) {
-        // we need to run through every sprite of the relevant type, and determine where it
-        updateStatisticsFromObservations(sso.getNPCPositions());
-        updateStatisticsFromObservations(sso.getMovablePositions());
-        updateStatisticsFromObservations(sso.getFromAvatarSpritesPositions());
+    public boolean isValidFor(GameStatusTracker gst, int id) {
+        return gst.getType(id) == spriteType;
     }
 
-    private void updateStatisticsFromObservations(Observation[][] data) {
-        if (data == null) return;
-        for (Observation[] npcPosition : data) {
-            if (npcPosition != null) {
-                for (Observation obs : npcPosition) {
-                    updateStatisticsFrom(obs);
-                }
-            }
-        }
-    }
-
-    public void updateStatisticsFrom(Observation obs) {
-        if (obs.itype == spriteType) {
-            boolean moved = true;
-            Vector2d lastPos = currentPositions.get(obs.obsID);
-            currentPositions.put(obs.obsID, obs.position);
-            if (lastPos != null) {
-                int lastD = lastDirection.getOrDefault(obs.obsID, 0);
-                int newD = lastD;
-                // 0 as a default means not moving
-                //  7 8 1
-                //  6 - 2
-                //  5 4 3       direction change is one of these numbers - half-right hand turns from straight up
-                double deltaXSquares = (obs.position.x - lastPos.x) / blockSize;
-                double deltaYSquares = (obs.position.y - lastPos.y) / blockSize;
-                if (deltaXSquares > 0.5) {
-                    if (deltaYSquares > 0.5) {
-                        newD = 3;
-                    } else if (deltaYSquares < -0.5) {
-                        newD = 1;
-                    } else {
-                        newD = 2;
-                    }
-                } else if (deltaXSquares < -0.5) {
-                    if (deltaYSquares > 0.5) {
-                        newD = 5;
-                    } else if (deltaYSquares < -0.5) {
-                        newD = 7;
-                    } else {
-                        newD = 6;
-                    }
-                } else {
-                    if (deltaYSquares > 0.5) {
-                        newD = 4;
-                    } else if (deltaYSquares < -0.5) {
-                        newD = 8;
-                    } else {
-                        newD = lastD; // no movement
-                        staticCount++;
-                        moved = false;
-                    }
-                }
-                if (moved) {
-                    int directionChange = (8 + newD - lastD) % 8;
-                    if (lastD == 0) {
-                        // we have not yet seen a move
-                        directionChange = 0;
-                    }
-                    counts[directionChange]++;
-                    lastDirection.put(obs.obsID, newD);
-                }
-                totalCount++;
-
-            }
-        }
-    }
 }

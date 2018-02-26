@@ -6,6 +6,8 @@ import hopshackle1.*;
 import java.util.*;
 
 import hopshackle1.RL.*;
+import hopshackle1.models.GameStatusTracker;
+import hopshackle1.models.GameStatusTrackerWithHistory;
 import hopshackle1.models.SSOModifier;
 import org.junit.*;
 import serialization.SerializableStateObservation;
@@ -25,7 +27,7 @@ public class RLTargetCalculatorTest {
     private double[] fourStepValPred = {6.561 + 1.71, 6.561 + 4.4515, 6.561 + 3.835, 6.561 + 3.15, 3.5 - 72.9, -81.0, -90.0, -100.0};
     private SerializableStateObservation[] allStates = new SerializableStateObservation[9];
     private LinkedList<SARTuple> testData;
-
+    private GameStatusTrackerWithHistory gst;
     private ConstantActionValueFunctionApproximator constantValuer = new ConstantActionValueFunctionApproximator(10.0);
 
     @Before
@@ -35,8 +37,11 @@ public class RLTargetCalculatorTest {
             allStates[i] = SSOModifier.constructEmptySSO();
         }
         allStates[8] = null;
+
+        gst = new GameStatusTrackerWithHistory();
         for (int i = 0; i < rewardData.length; i++) {
-            SARTuple tuple = new SARTuple(allStates[i], allStates[i + 1], null, new ArrayList(), new ArrayList(), rewardData[i]);
+            gst.update(allStates[i]);
+            SARTuple tuple = new SARTuple(gst, allStates[i + 1], null, new ArrayList(), new ArrayList(), rewardData[i]);
             testData.add(tuple);
         }
     }
@@ -143,7 +148,17 @@ class ConstantActionValueFunctionApproximator implements ActionValueFunctionAppr
     }
 
     @Override
+    public double value(GameStatusTracker gst, Types.ACTIONS a) {
+        return c;
+    }
+
+    @Override
     public ActionValue valueOfBestAction(SerializableStateObservation s, List<Types.ACTIONS> actions) {
+        return new ActionValue(Types.ACTIONS.ACTION_LEFT, c);
+    }
+
+    @Override
+    public ActionValue valueOfBestAction(GameStatusTracker gst, List<Types.ACTIONS> actions) {
         return new ActionValue(Types.ACTIONS.ACTION_LEFT, c);
     }
 }

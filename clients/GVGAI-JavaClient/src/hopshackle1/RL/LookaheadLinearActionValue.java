@@ -2,6 +2,7 @@ package hopshackle1.RL;
 
 import hopshackle1.*;
 import hopshackle1.FeatureSets.FeatureSet;
+import hopshackle1.models.GameStatusTracker;
 import serialization.*;
 import serialization.Types.*;
 
@@ -15,6 +16,7 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     private double gamma;
     private LookaheadFunction lookahead;
     private EntityLog logFile;
+    private double defaultFeatureCoefficient;
 
     public LookaheadLinearActionValue(List<FeatureSet> features, double discountRate, boolean debug, LookaheadFunction lookahead) {
         this.debug = debug;
@@ -54,7 +56,12 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
 
     @Override
     public double value(SerializableStateObservation sso, ACTIONS a) {
-        SerializableStateObservation forward = lookahead.rollForward(sso, a);
+        throw new AssertionError("Lookahead function cannot look ahead from an sso. It needs a GameStatusTracker");
+    }
+
+    @Override
+    public double value(GameStatusTracker gst, ACTIONS a) {
+        SerializableStateObservation forward = lookahead.rollForward(gst, a);
         return value(forward);
     }
 
@@ -65,12 +72,12 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     }
 
     @Override
-    public ActionValue valueOfBestAction(SerializableStateObservation sso, List<ACTIONS> actions) {
-        if (actions.isEmpty() || sso == null) return new ActionValue(ACTIONS.ACTION_NIL, 0.0);
+    public ActionValue valueOfBestAction(GameStatusTracker gst, List<ACTIONS> actions) {
+        if (actions.isEmpty() || gst == null) return new ActionValue(ACTIONS.ACTION_NIL, 0.0);
         double retValue = Double.NEGATIVE_INFINITY;
         ACTIONS actionChosen = null;
         for (ACTIONS action : actions) {
-            SerializableStateObservation forward = lookahead.rollForward(sso, action);
+            SerializableStateObservation forward = lookahead.rollForward(gst, action);
             double actionValue = value(forward, action);
             if (actionValue > retValue) {
                 retValue = actionValue;
@@ -81,8 +88,13 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     }
 
     @Override
+    public ActionValue valueOfBestAction(SerializableStateObservation sso, List<ACTIONS> actions) {
+        throw new AssertionError("Lookahead function cannot look ahead from an sso. It needs a GameStatusTracker");
+    }
+
+    @Override
     public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
-        SerializableStateObservation forward = lookahead.rollForward(tuple.startSSO, tuple.action);
+        SerializableStateObservation forward = lookahead.rollForward(tuple.startGST, tuple.action);
         State state = calculateState(forward);
         double currentValuation = value(state);
         double delta = tuple.target - currentValuation;
@@ -111,7 +123,7 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
 
     public double getCoeffFor(int feature) {
         if (!coefficients.containsKey(feature)) {
-            coefficients.put(feature, 0.0);
+            coefficients.put(feature, defaultFeatureCoefficient);
         }
         return coefficients.get(feature);
     }
@@ -138,6 +150,10 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
             logFile.flush();
         }
         return retValue;
+    }
+
+    public void setDefaultFeatureCoefficient(double newValue) {
+        defaultFeatureCoefficient = newValue;
     }
 }
 
