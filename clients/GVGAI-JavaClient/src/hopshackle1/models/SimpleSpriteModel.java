@@ -73,13 +73,16 @@ public class SimpleSpriteModel implements BehaviourModel {
 
     @Override
     public List<Pair<Double, Vector2d>> nextMovePdf(GameStatusTracker gst, int objID, Types.ACTIONS move) {
-        Vector2d heading = gst.getCurrentVelocity(objID);
+        Vector2d heading = gst.getLastDirection(objID);
         List<Pair<Double, Vector2d>> retValue = new ArrayList();
         // first the possibility of not moving
         double p = (double) staticCount / totalCount;
+        if (heading == null || heading.equals(stationary)) p = 1.0;
         Vector2d currentPos = gst.getCurrentPosition(objID);
         Pair<Double, Vector2d> option = new Pair(p, currentPos);
         retValue.add(option);
+
+        if (p == 1.0) return retValue;
 
         // then the possibility of each turn
         for (int i = 0; i < 8; i++) {
@@ -111,9 +114,10 @@ public class SimpleSpriteModel implements BehaviourModel {
                     // which indicates we are now moving from a cold start, which we treat as 'geradeaus'
                     counts[0]++;
                 } else {
-                    Vector2d delV = new Vector2d(v).subtract(lastV);
-                    int heading = HopshackleUtilities.directionOf(delV).getValue1();
-                    counts[heading]++;
+                    double oldHeading = HopshackleUtilities.directionOf(lastV).getValue0();
+                    double newHeading = HopshackleUtilities.directionOf(v).getValue0();
+                    int headingChange = (int) ((newHeading - oldHeading + 2.0 * Math.PI) / (Math.PI / 4.0) + 0.5) %8;
+                    counts[headingChange]++;
                 }
                 if (!v.equals(stationary)) // we update last known direction only if we moved
                     lastV = v;

@@ -55,7 +55,7 @@ public class SimpleSpriteModelTest {
     public void correctStatisticsAfterSomeMoves() {
 
         SSOModifier.addSprite(6, 6,4, 45, 50, sso);
-        gst.update(sso);
+        updateGST();
 
         SSOModifier.moveSprite(6, 6, 45, 55, sso);
         updateGST();
@@ -74,9 +74,10 @@ public class SimpleSpriteModelTest {
         assertEquals(pdf.get(0).getValue1().x, 48.0, 0.001);
         assertEquals(pdf.get(0).getValue1().y, 58.0, 0.001);
 
+        // we alsways assume we move exactly block size in this Model
         assertEquals(pdf.get(1).getValue0(), 1.0 / 8.0, 0.001); // forward (0)
-        assertEquals(pdf.get(1).getValue1().x, 53.0, 0.001);
-        assertEquals(pdf.get(1).getValue1().y, 63.0, 0.001);
+        assertEquals(pdf.get(1).getValue1().x, 48.0 + 5.0 / Math.sqrt(2.0), 0.01);
+        assertEquals(pdf.get(1).getValue1().y, 58.0 + 5.0 / Math.sqrt(2.0), 0.01);
 
         assertEquals(pdf.get(2).getValue0(), 1.0 / 8.0, 0.001); // half-left (7)
         assertEquals(pdf.get(2).getValue1().x, 53.0, 0.001);

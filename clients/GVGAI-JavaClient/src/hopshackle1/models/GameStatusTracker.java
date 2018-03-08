@@ -17,10 +17,12 @@ public class GameStatusTracker {
     private int currentTick;
     private double[] worldDimension = new double[2];
     protected Map<Integer, Vector2d> currentPositions = new HashMap(); // last position for each tracked sprite
-    private Map<Integer, Vector2d> currentVelocities = new HashMap(); // last known move direction for each tracked sprite
+    private Map<Integer, Vector2d> currentVelocities = new HashMap(); // last velocity for each tracked sprite
+    private Map<Integer, Vector2d> lastDirection = new HashMap(); // last non-zero velocity for each tracked sprite
     private Map<Integer, Pair<Integer, Integer>> IDToCategoryAndType = new HashMap();
     private Set<Pair<Integer, Integer>> currentCollisions = new HashSet();
     private SerializableStateObservation currentSSO;
+    private static final Vector2d stationary = new Vector2d(0, 0);
 
     public GameStatusTracker() {
 
@@ -33,6 +35,7 @@ public class GameStatusTracker {
         worldDimension = gst.worldDimension;
         currentPositions = HopshackleUtilities.cloneMap(gst.currentPositions);
         currentVelocities = HopshackleUtilities.cloneMap(gst.currentVelocities);
+        lastDirection = HopshackleUtilities.cloneMap(gst.lastDirection);
         IDToCategoryAndType = HopshackleUtilities.cloneMap(gst.IDToCategoryAndType);
         detectCollisions();
     }
@@ -56,8 +59,11 @@ public class GameStatusTracker {
         currentTick = sso.gameTick;
         Vector2d newAvatarPos = new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
         currentPositions.put(0, new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]));
-        Vector2d avatarVelocity = (lastAvatarPos == null) ? new Vector2d(0, 0) : new Vector2d(newAvatarPos).subtract(lastAvatarPos);
+        Vector2d avatarVelocity = (lastAvatarPos == null) ? stationary: new Vector2d(newAvatarPos).subtract(lastAvatarPos);
         currentVelocities.put(0, avatarVelocity);
+        if (!avatarVelocity.equals(stationary)) {
+            lastDirection.put(0, avatarVelocity);
+        }
 
         Set<Integer> allCurrentIDs = new HashSet();
         if (sso.isAvatarAlive) allCurrentIDs.add(0);
@@ -72,6 +78,9 @@ public class GameStatusTracker {
                 Vector2d velocity = lastPos == null ? new Vector2d(0, 0) : new Vector2d(currentPos).subtract(lastPos);
                 currentPositions.put(id, currentPos);
                 currentVelocities.put(id, velocity);
+                if (!velocity.equals(stationary)) {
+                    lastDirection.put(id, velocity);
+                }
                 if (!IDToCategoryAndType.containsKey(id)) {
                     IDToCategoryAndType.put(id, new Pair(i, type));
                 }
@@ -88,6 +97,7 @@ public class GameStatusTracker {
         for (Integer id : idsToRemove) {
             currentPositions.remove(id);
             currentVelocities.remove(id);
+            lastDirection.remove(id);
         }
         currentSSO = sso;
     }
@@ -100,6 +110,8 @@ public class GameStatusTracker {
     public Vector2d getCurrentVelocity(int id) {
         return currentVelocities.getOrDefault(id, null);
     }
+
+    public Vector2d getLastDirection(int id) { return lastDirection.getOrDefault(id, null); }
 
     public boolean isExtant(int id) {
         return currentPositions.containsKey(id);
@@ -205,6 +217,7 @@ public class GameStatusTracker {
                 }
             }
         }
+        SSOModifier.constructGrid(forwardStep);
         update(forwardStep);
     }
 

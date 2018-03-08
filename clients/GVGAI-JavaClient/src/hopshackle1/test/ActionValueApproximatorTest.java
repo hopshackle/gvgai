@@ -103,18 +103,11 @@ public class ActionValueApproximatorTest {
         // set some value-only coefficients
         independent.setCoeffFor(0, 339, 2.0);   // used
         independent.setCoeffFor(2, 339, -10.0);  // for ACTIONS_ESCAPE
-        lookahead.setCoeffFor(2587, 0.5);               // used
-        lookahead.setCoeffFor(597, 2.5);            // not used
 
         assertEquals(independent.value(sso, ACTIONS.ACTION_LEFT), 0.0, 0.001);
-        assertEquals(lookahead.value(sso, ACTIONS.ACTION_LEFT), 0.5, 0.001);
-
         assertEquals(independent.value(sso, ACTIONS.ACTION_ESCAPE), -10.0, 0.001);
-        assertEquals(lookahead.value(sso, ACTIONS.ACTION_ESCAPE), 0.5, 0.001);
-
         // and an unseen action
         assertEquals(independent.value(sso, ACTIONS.ACTION_RIGHT), 0.0, 0.001);
-        assertEquals(lookahead.value(sso, ACTIONS.ACTION_RIGHT), 0.5, 0.001);
     }
 
     @Test

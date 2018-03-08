@@ -61,7 +61,7 @@ public class GameStatusTrackerWithHistory extends GameStatusTracker {
                     traj.add(new Pair(currentTick, currentPos));
                     trajectories.put(id, traj);
                     lifeSpan.put(id, new Pair(currentTick, -1));
-                } else if (i == SSOModifier.TYPE_NPC || 1 == SSOModifier.TYPE_MOVABLE || i == SSOModifier.TYPE_FROMAVATAR) {
+                } else if (i == SSOModifier.TYPE_NPC || i == SSOModifier.TYPE_MOVABLE || i == SSOModifier.TYPE_FROMAVATAR) {
                     // we always track starting position - but we currently assume that only the types below can move
                     traj = trajectories.get(id);
                     traj.add(new Pair(currentTick, currentPos));
