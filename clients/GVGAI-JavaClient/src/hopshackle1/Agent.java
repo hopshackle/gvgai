@@ -67,6 +67,7 @@ public class Agent extends utils.AbstractPlayer {
         featureSets.add(new AvatarMeshWidthOneFeatureSet(2));
         featureSets.add(new AvatarMeshWidthThreeFeatureSet(1));
         featureSets.add(new GlobalPopulationFeatureSet());
+        featureSets.add(new CollisionFeatures());
 
         //QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
         model = new BehaviouralLookaheadFunction();

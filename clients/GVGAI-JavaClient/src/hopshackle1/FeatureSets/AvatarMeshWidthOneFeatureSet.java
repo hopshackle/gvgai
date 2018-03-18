@@ -29,7 +29,7 @@ public class AvatarMeshWidthOneFeatureSet implements FeatureSet {
                     logFile.log("\t" + mesh.toString());
                 }
                 if (feature != 0) {
-                    feature += (i + 1) * 6703 + (j + 1) * 28693;
+                    feature += (i + 1) * 6703 + (j + 1) * 28697;
                     retValue.setFeature(feature, 1.0);
                 }
             }

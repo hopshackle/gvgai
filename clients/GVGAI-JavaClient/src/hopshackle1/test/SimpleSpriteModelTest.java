@@ -102,7 +102,7 @@ public class SimpleSpriteModelTest {
         updateGST();
         SSOModifier.moveSprite(6, 6, 53, 58, sso);
         updateGST();
-        SSOModifier.moveSprite(6, 6, 50, 62, sso);
+        SSOModifier.moveSprite(6, 6, 50, 61, sso);
         updateGST();
         model.updateModelStatistics(gst);
         // that should be S (4), SE (3), Stationary (-), E (2), SW (5)
@@ -112,29 +112,29 @@ public class SimpleSpriteModelTest {
         assertEquals(pdf.size(), 4);        // static, straightOn, hardRight, softLeft
         assertEquals(pdf.get(0).getValue0(), 0.6, 0.001); // stasis
         assertEquals(pdf.get(0).getValue1().x, 50.0, 0.001);
-        assertEquals(pdf.get(0).getValue1().y, 62.0, 0.001);
+        assertEquals(pdf.get(0).getValue1().y, 61.0, 0.001);
 
         assertEquals(pdf.get(1).getValue0(), 0.1, 0.001); // forward (SW)
-        assertEquals(pdf.get(1).getValue1().x, 45.0, 0.001);
-        assertEquals(pdf.get(1).getValue1().y, 67.0, 0.001);
+        assertEquals(pdf.get(1).getValue1().x, 50.0 - 5.0/Math.sqrt(2.0), 0.001);
+        assertEquals(pdf.get(1).getValue1().y, 61.0 + 5.0/Math.sqrt(2.0), 0.001);
 
         assertEquals(pdf.get(2).getValue0(), 0.1, 0.001); // hardRight (N)
         assertEquals(pdf.get(2).getValue1().x, 50.0, 0.001);
-        assertEquals(pdf.get(2).getValue1().y, 57.0, 0.001);
+        assertEquals(pdf.get(2).getValue1().y, 56.0, 0.001);
 
         assertEquals(pdf.get(3).getValue0(), 0.2, 0.001); // softLeft (S)
         assertEquals(pdf.get(3).getValue1().x, 50.0, 0.001);
-        assertEquals(pdf.get(3).getValue1().y, 67.0, 0.001);
+        assertEquals(pdf.get(3).getValue1().y, 66.0, 0.001);
 
         int stationary = 0, hardRight = 0, softLeft = 0, straightOn = 0;
         for (int i = 0; i < 1000; i++) {
             Vector2d m = model.nextMoveRandom(gst, 6, null);
             double x = m.x;
             double y = m.y;
-            if (x < 50.1 && x > 49.9 && y < 62.1 && y > 61.9) stationary++;
-            if (x < 50.1 && x > 49.9 && y < 57.1 && y > 56.9) hardRight++; // new direction is N
-            if (x < 50.1 && x > 49.9 && y < 67.1 && y > 66.9) softLeft++; // new direction is S
-            if (x < 45.1 && x > 44.9 && y < 67.1 && y > 66.9) straightOn++; // new direction is SW
+            if (x < 50.1 && x > 49.9 && y < 61.1 && y > 60.9) stationary++;
+            if (x < 50.1 && x > 49.9 && y < 56.1 && y > 55.9) hardRight++; // new direction is N
+            if (x < 50.1 && x > 49.9 && y < 66.1 && y > 65.9) softLeft++; // new direction is S
+            if (x < 46.6 && x > 46.4 && y < 64.6 && y > 64.4) straightOn++; // new direction is SW
         }
 
         int total = stationary + hardRight + softLeft + straightOn;
@@ -161,42 +161,42 @@ public class SimpleSpriteModelTest {
         assertEquals(pos.y, 50.0, 0.001);
         Pair<Double, Integer> direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
         assertEquals((int) direction.getValue1(), 2);
-        assertEquals(direction.getValue0(), Math.PI, 0.001);
+        assertEquals(direction.getValue0(), Math.PI / 2.0, 0.001);
 
-        SSOModifier.moveSprite(6, 6, 48, 47, sso);
+        SSOModifier.moveSprite(6, 6, 48, 47, sso); // NW-ish
         updateGST();
         direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
-        assertEquals((int) direction.getValue1(), 8);
+        assertEquals((int) direction.getValue1(), 7);
 
-        SSOModifier.moveSprite(6, 6, 43, 47, sso);
+        SSOModifier.moveSprite(6, 6, 43, 47, sso); // W
         updateGST();
         direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
         assertEquals((int) direction.getValue1(), 6);
-        assertEquals(direction.getValue0(), Math.PI / 2.0, 0.001);
+        assertEquals(direction.getValue0(), 3.0 * Math.PI / 2.0, 0.001);
 
-        SSOModifier.moveSprite(6, 6, 47, 42, sso);
+        SSOModifier.moveSprite(6, 6, 47, 42, sso); // NE-ish
         updateGST();
         direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
         assertEquals((int) direction.getValue1(), 1);
 
-        SSOModifier.moveSprite(6, 6, 43, 47, sso);
+        SSOModifier.moveSprite(6, 6, 43, 47, sso); // SW-ish
         updateGST();
         direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
         assertEquals((int) direction.getValue1(), 5);
 
-        SSOModifier.moveSprite(6, 6, 47, 50, sso);
+        SSOModifier.moveSprite(6, 6, 47, 50, sso); // SE-ish
         updateGST();
         pos = gst.getCurrentPosition(6);
         direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
         assertEquals((int) direction.getValue1(), 3);
 
-        SSOModifier.moveSprite(6, 6, 47, 55, sso);
+        SSOModifier.moveSprite(6, 6, 47, 55, sso); // S-ish
         updateGST();
         direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
-        assertEquals((int) direction.getValue1(), 6);
-        assertEquals(direction.getValue0(), 0.0, 0.001);
+        assertEquals((int) direction.getValue1(), 4);
+        assertEquals(direction.getValue0(), Math.PI, 0.001);
 
-        SSOModifier.moveSprite(6, 6, 43, 51, sso);
+        SSOModifier.moveSprite(6, 6, 43, 51, sso); // NW-ish
         updateGST();
         direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
         assertEquals((int) direction.getValue1(), 7);
@@ -204,7 +204,7 @@ public class SimpleSpriteModelTest {
         SSOModifier.moveSprite(6, 6, 43, 51, sso);
         updateGST();
         direction = HopshackleUtilities.directionOf(gst.getCurrentVelocity(6));
-        assertEquals((int) direction.getValue1(), 7);
+        assertEquals((int) direction.getValue1(), 2);       // PI/2 is the default
     }
 
     @Test
@@ -220,7 +220,7 @@ public class SimpleSpriteModelTest {
         gst.update(sso);
 
         model = new SimpleSpriteModel(10, new int[]{5, 0, 0, 0, 0, 0, 0, 0},0, 4);
-        BehaviourModel turnRight = new SimpleSpriteModel(10, new int[]{0, 500, 0, 0, 0, 0, 0, 0}, 0, 6);
+        BehaviourModel turnRight = new SimpleSpriteModel(10, new int[]{0, 0, 500, 0, 0, 0, 0, 0}, 0, 6);
         BehaviourModel stayStill = new SimpleSpriteModel(10, new int[]{0, 0, 0, 0, 0, 0, 0, 0}, 500, 2);
 
         // model will always move forward
@@ -250,32 +250,43 @@ public class SimpleSpriteModelTest {
         allModels.add(stayStill);
         allModels.add(turnRight);
 
+        gst.update(sso);
+        gstCopy = new GameStatusTracker(gst);
         gstCopy.rollForward(allModels, null); // should be no change
         sso = gstCopy.getCurrentSSO();
         assertEquals(sso.NPCPositions[0][0].position.x, 50.0, 0.001);
         assertEquals(sso.NPCPositions[0][0].position.y, 70.0, 0.001);
-        assertEquals(sso.NPCPositions[1][0].position.x, 5.0, 0.001);
-        assertEquals(sso.NPCPositions[1][0].position.y, 0.0, 0.001);
+        assertEquals(sso.NPCPositions[1][0].position.x, 15.0 - 10.0/Math.sqrt(2.0), 0.001);
+        assertEquals(sso.NPCPositions[1][0].position.y, 10.0 - 10.0/Math.sqrt(2.0), 0.001);
         assertEquals(sso.movablePositions[0][0].position.x, 10.0, 0.001);
         assertEquals(sso.movablePositions[0][0].position.y, 20.0, 0.001);
         assertEquals(sso.fromAvatarSpritesPositions[0][0].position.x, 10.0, 0.001);
-        assertEquals(sso.fromAvatarSpritesPositions[0][0].position.y, 0.0, 0.001);
+        assertEquals(sso.fromAvatarSpritesPositions[0][0].position.y, 10.0, 0.001);
 
         SSOModifier.constructGrid(sso);
         // should put sprites in correct place
-        assertEquals(sso.observationGrid[0][0][0].obsID, 11);
-        assertEquals(sso.observationGrid[0][0][0].position.x, 5.0, 0.1);
-        assertEquals(sso.observationGrid[0][0][0].position.y, 0.0, 0.1);
         assertEquals(sso.observationGrid[0][0].length, 1);
-        assertEquals(sso.observationGrid[1][0].length, 2);
+        assertEquals(sso.observationGrid[0][0][0].obsID, 11);
+        assertEquals(sso.observationGrid[0][0][0].position.x, 15.0 - 10.0/Math.sqrt(2.0), 0.1); // 7.93
+        assertEquals(sso.observationGrid[0][0][0].position.y, 10.0 - 10.0/Math.sqrt(2.0), 0.1); // 2.93
+
+        assertEquals(sso.observationGrid[1][1].length, 2);
+        assertEquals(sso.observationGrid[1][1][0].obsID, 11);
+        assertEquals(sso.observationGrid[1][1][0].position.x, 15.0 - 10.0/Math.sqrt(2.0), 0.1);
+        assertEquals(sso.observationGrid[1][1][0].position.y, 10.0 - 10.0/Math.sqrt(2.0), 0.1);
+        assertEquals(sso.observationGrid[1][1][1].obsID, 60);
+        assertEquals(sso.observationGrid[1][1][1].position.x, 10.0, 0.1);
+        assertEquals(sso.observationGrid[1][1][1].position.y, 10.0, 0.1);
+
+        assertEquals(sso.observationGrid[0][1].length, 1);
+        assertEquals(sso.observationGrid[0][1][0].obsID, 11);
+        assertEquals(sso.observationGrid[0][1][0].position.x, 15.0 - 10.0/Math.sqrt(2.0), 0.1); // 7.93
+        assertEquals(sso.observationGrid[0][1][0].position.y, 10.0 - 10.0/Math.sqrt(2.0), 0.1); // 2.93
+        assertEquals(sso.observationGrid[1][0].length, 1);
         assertEquals(sso.observationGrid[1][0][0].obsID, 11);
-        assertEquals(sso.observationGrid[1][0][0].position.x, 5.0, 0.1);
-        assertEquals(sso.observationGrid[1][0][0].position.y, 0.0, 0.1);
-        assertEquals(sso.observationGrid[1][0][1].obsID, 60);
-        assertEquals(sso.observationGrid[1][0][1].position.x, 10.0, 0.1);
-        assertEquals(sso.observationGrid[1][0][1].position.y, 0.0, 0.1);
-        assertEquals(sso.observationGrid[0][1].length, 0);
-        assertEquals(sso.observationGrid[1][1].length, 0);
+        assertEquals(sso.observationGrid[1][0][0].position.x, 15.0 - 10.0/Math.sqrt(2.0), 0.1); // 7.93
+        assertEquals(sso.observationGrid[1][0][0].position.y, 10.0 - 10.0/Math.sqrt(2.0), 0.1); // 2.93
+
         assertEquals(sso.observationGrid[5][7][0].obsID, 8);
         assertEquals(sso.observationGrid[5][7][0].position.x, 50.0, 0.1);
         assertEquals(sso.observationGrid[5][7][0].position.y, 70.0, 0.1);

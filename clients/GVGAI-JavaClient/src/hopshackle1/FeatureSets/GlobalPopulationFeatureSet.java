@@ -16,7 +16,7 @@ public class GlobalPopulationFeatureSet implements FeatureSet {
         extractFeaturesFrom(retValue, obs.getFromAvatarSpritesPositions());
     }
 
-    public void extractFeaturesFrom(State base, Observation[][] obs) {
+    private void extractFeaturesFrom(State base, Observation[][] obs) {
         // the first dimension of the array is sprite type
         if (obs == null) return;
         for (int i = 0; i < obs.length; i++) {

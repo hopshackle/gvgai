@@ -265,6 +265,31 @@ public class SSOModifier {
         return retValue;
     }
 
+    public static Set<Pair<Integer, Integer>> detectCollisions(SerializableStateObservation sso) {
+
+        // for the moment we define a collision as two sprites sharing a block
+        // we then generate a list of colliding sprites
+
+        // we have the position of each sprite ... do we just generate an Observation Grid, and then look for overlaps?
+        // in this case though, we just add the id of the sprites
+        Set<Pair<Integer, Integer>> retValue = new HashSet();
+
+        // we can then just run through obsGrid
+        for (int i = 0; i < sso.observationGrid.length; i++) {
+            for (int j = 0; j < sso.observationGrid[i].length; j++) {
+                if (sso.observationGrid[i][j].length > 1) {
+                    for (int k = 0; k < sso.observationGrid[i][j].length - 1; k++) {
+                        for (int l = k + 1; l < sso.observationGrid[i][j].length; l++) {
+                            retValue.add(new Pair(sso.observationGrid[i][j][k].obsID, sso.observationGrid[i][j][l].obsID));
+                        }
+                    }
+                }
+            }
+        }
+
+        return retValue;
+    }
+
     public static final int TYPE_AVATAR = 0;
     public static final int TYPE_RESOURCE = 1;
     public static final int TYPE_PORTAL = 2;
@@ -294,6 +319,8 @@ public class SSOModifier {
             case TYPE_MOVABLE:
                 obsArray = sso.movablePositions;
                 break;
+            default:
+                throw new AssertionError("Unknown Category " + category);
         }
         return obsArray;
     }

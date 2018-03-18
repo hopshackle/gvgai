@@ -20,7 +20,6 @@ public class GameStatusTracker {
     private Map<Integer, Vector2d> currentVelocities = new HashMap(); // last velocity for each tracked sprite
     private Map<Integer, Vector2d> lastDirection = new HashMap(); // last non-zero velocity for each tracked sprite
     private Map<Integer, Pair<Integer, Integer>> IDToCategoryAndType = new HashMap();
-    private Set<Pair<Integer, Integer>> currentCollisions = new HashSet();
     private SerializableStateObservation currentSSO;
     private static final Vector2d stationary = new Vector2d(0, 0);
 
@@ -37,7 +36,6 @@ public class GameStatusTracker {
         currentVelocities = HopshackleUtilities.cloneMap(gst.currentVelocities);
         lastDirection = HopshackleUtilities.cloneMap(gst.lastDirection);
         IDToCategoryAndType = HopshackleUtilities.cloneMap(gst.IDToCategoryAndType);
-        detectCollisions();
     }
 
     /*
@@ -152,58 +150,6 @@ public class GameStatusTracker {
     public int getBlockSize() {
         return blockSize;
     }
-
-    public Set<Pair<Integer, Integer>> detectCollisions() {
-        // for the moment we define a collision as two sprites sharing a block
-        // we then generate a list of colliding sprites
-
-        // we have the position of each sprite ... do we just generate an Observation Grid, and then look for overlaps?
-        // in this case though, we just add the id of the sprites
-
-        List<Integer>[][] wipObsGrid = new ArrayList[(int) (worldDimension[0] / blockSize)][(int) (worldDimension[1] / blockSize)];
-        // we need to construct a temporary grid that we can then update
-        for (int i = 0; i < wipObsGrid.length; i++) {
-            for (int j = 0; j < wipObsGrid[i].length; j++) {
-                wipObsGrid[i][j] = new ArrayList();
-            }
-        }
-
-        for (Integer id : currentPositions.keySet()) {
-            Vector2d position = currentPositions.get(id);
-            int x = (int) position.x / blockSize;
-            boolean validX = x >= 0 && x < wipObsGrid.length;
-            boolean xPlus = (position.x % blockSize) > 0 && (x + 1 < wipObsGrid.length);
-            int y = (int) position.y / blockSize;
-            boolean validY = y >= 0 && y < wipObsGrid[0].length;
-            boolean yPlus = (position.y % blockSize) > 0 && (y + 1 < wipObsGrid[0].length);
-
-            if (validX && validY) {
-                wipObsGrid[x][y].add(id);
-                if (xPlus)
-                    wipObsGrid[x + 1][y].add(id);
-                if (yPlus)
-                    wipObsGrid[x][y + 1].add(id);
-                if (xPlus && yPlus)
-                    wipObsGrid[x + 1][y + 1].add(id);
-            }
-        }
-        currentCollisions = new HashSet();
-        for (int i = 0; i < wipObsGrid.length; i++) {
-            for (int j = 0; j < wipObsGrid[i].length; j++) {
-                if (wipObsGrid[i][j].size() > 1) {
-                    List<Integer> spritesPresent = wipObsGrid[i][j];
-                    for (Integer id1 : spritesPresent) {
-                        for (Integer id2 : spritesPresent) {
-                            if (id1 != id2)
-                                currentCollisions.add(new Pair(id1, id2));
-                        }
-                    }
-                }
-            }
-        }
-        return currentCollisions;
-    }
-
 
     public void rollForward(List<BehaviourModel> models, ACTIONS avatarMove) {
         SerializableStateObservation forwardStep = SSOModifier.copy(currentSSO);
