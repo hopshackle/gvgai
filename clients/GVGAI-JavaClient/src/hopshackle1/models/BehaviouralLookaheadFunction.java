@@ -34,27 +34,31 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
 
     @Override
     public Vector2d nextMoveMAP(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
-        BehaviourModel model = getModelForID(objID);
+        BehaviourModel model = spriteTypeToModel.get(gst.getType(objID));
+        if (model == null) {
+            return gst.getCurrentPosition(objID);
+        }
         return model.nextMoveMAP(gst, objID, avatarMove);
     }
 
     @Override
     public Vector2d nextMoveRandom(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
-        BehaviourModel model = getModelForID(objID);
+        BehaviourModel model = spriteTypeToModel.get(gst.getType(objID));
+        if (model == null) {
+            return gst.getCurrentPosition(objID);
+        }
         return model.nextMoveRandom(gst, objID, avatarMove);
     }
 
     @Override
     public List<Pair<Double, Vector2d>> nextMovePdf(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
-        BehaviourModel model = getModelForID(objID);
+        BehaviourModel model = spriteTypeToModel.get(gst.getType(objID));
+        if (model == null) {
+            List<Pair<Double, Vector2d>> retValue = new ArrayList();
+            retValue.add(new Pair(1.0, gst.getCurrentPosition(objID)));
+            return retValue;
+        }
         return model.nextMovePdf(gst, objID, avatarMove);
-    }
-
-    private BehaviourModel getModelForID(int objID) {
-        if (!IDToSpriteType.containsKey(objID))
-            throw new AssertionError("No record of objID " + objID);
-        int spriteType = IDToSpriteType.get(objID);
-        return spriteTypeToModel.get(spriteType);
     }
 
     private void checkForNewSpriteTypes(GameStatusTracker gst) {
@@ -70,7 +74,7 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
         for (int id : allSpriteIDs) {
             int type = gst.getType(id);
             if (!spriteTypeToModel.containsKey(type)) {
-                BehaviourModel newModel = new SimpleSpriteModel(blockSize, type);
+                BehaviourModel newModel = new SimpleSpriteModel(type);
                 spriteTypeToModel.put(type, newModel);
             }
             if (!IDToSpriteType.containsKey(id))
@@ -85,4 +89,12 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
                 || category == SSOModifier.TYPE_MOVABLE || category == SSOModifier.TYPE_NPC);
     }
 
+    @Override
+    public String toString() {
+        StringBuilder retValue = new StringBuilder();
+        for (Integer type : spriteTypeToModel.keySet()) {
+            retValue.append(String.format("\tType: %d\t%s\n", type, spriteTypeToModel.get(type).toString()));
+        }
+        return retValue.toString();
+    }
 }

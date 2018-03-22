@@ -5,6 +5,7 @@ import java.util.*;
 import hopshackle1.*;
 import hopshackle1.FeatureSets.FeatureSet;
 import hopshackle1.RL.*;
+import hopshackle1.models.GameStatusTracker;
 import serialization.*;
 import serialization.Types.*;
 
@@ -30,13 +31,18 @@ public class Reinforce implements Policy, Trainable {
     }
 
     @Override
-    public ACTIONS chooseAction(List<ACTIONS> availableActions, SerializableStateObservation sso) {
-        return choicePolicy.chooseAction(availableActions, sso);
+    public double[] pdfOver(List<ACTIONS> availableActions, GameStatusTracker gst) {
+        return choicePolicy.pdfOver(availableActions, gst);
+    }
+
+    @Override
+    public ACTIONS chooseAction(List<ACTIONS> availableActions, GameStatusTracker gst) {
+        return choicePolicy.chooseAction(availableActions, gst);
     }
 
     @Override
     public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
-        double[] actionPDF = choicePolicy.pdfOver(tuple.startGST.getCurrentSSO(), tuple.availableStartActions);
+        double[] actionPDF = choicePolicy.pdfOver(tuple.availableStartActions, tuple.startGST);
         State startState = coeffs.calculateState(tuple.startGST.getCurrentSSO());
 
         int[] indicesToCoefficientsForAvailableActions = new int[tuple.availableStartActions.size()];

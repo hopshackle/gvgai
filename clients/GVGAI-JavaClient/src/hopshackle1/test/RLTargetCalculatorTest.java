@@ -138,11 +138,6 @@ class ConstantActionValueFunctionApproximator implements ActionValueFunctionAppr
     }
 
     @Override
-    public double value(SerializableStateObservation s, Types.ACTIONS a) {
-        return c;
-    }
-
-    @Override
     public double value(SerializableStateObservation s) {
         return c;
     }
@@ -150,11 +145,6 @@ class ConstantActionValueFunctionApproximator implements ActionValueFunctionAppr
     @Override
     public double value(GameStatusTracker gst, Types.ACTIONS a) {
         return c;
-    }
-
-    @Override
-    public ActionValue valueOfBestAction(SerializableStateObservation s, List<Types.ACTIONS> actions) {
-        return new ActionValue(Types.ACTIONS.ACTION_LEFT, c);
     }
 
     @Override

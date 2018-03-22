@@ -69,11 +69,12 @@ public class SSOModifier {
     }
 
     private static void addAllObsToList(Observation[][] observations, List<Observation> list) {
-        for (Observation[] observation : observations) {
-            for (Observation observation1 : observation) {
-                list.add(observation1);
+        if (observations != null && observations.length > 0)
+            for (Observation[] observation : observations) {
+                for (Observation observation1 : observation) {
+                    list.add(observation1);
+                }
             }
-        }
     }
 
     private static void addObservationToGrid(Observation obs, List<Observation>[][] observationGrid, int blockSize) {
@@ -164,6 +165,10 @@ public class SSOModifier {
         }
     }
 
+    public static void moveSprite(int id, int category, Vector2d newPos, SerializableStateObservation sso) {
+        moveSprite(id, category, newPos.x, newPos.y, sso);
+    }
+
     public static void moveSprite(int id, int category, double x, double y, SerializableStateObservation sso) {
         if (category == TYPE_AVATAR) {
             sso.avatarPosition[0] = x;
@@ -219,7 +224,7 @@ public class SSOModifier {
                 double v = 0.00;
                 for (Pair<Double, Vector2d> prediction : predictions.get(spriteID)) {
                     Vector2d predictedPosition = prediction.getValue1();
-                    double closestSoFar = sso.blockSize; // must be within at least this
+                    double closestSoFar = sso.blockSize / 2.0; // must be within at least this
                     double distanceToActualPosition = predictedPosition.dist(currentPosition);
                     if (distanceToActualPosition < closestSoFar) {
                         // correct
@@ -267,6 +272,9 @@ public class SSOModifier {
 
     public static Set<Pair<Integer, Integer>> detectCollisions(SerializableStateObservation sso) {
 
+        if (sso.observationGrid == null || sso.observationGrid.length == 0) {
+            constructGrid(sso);
+        }
         // for the moment we define a collision as two sprites sharing a block
         // we then generate a list of colliding sprites
 
@@ -290,6 +298,30 @@ public class SSOModifier {
         return retValue;
     }
 
+    public static Set<Integer> newCollisionsOf(int objId, int category, SerializableStateObservation sso, Vector2d newPosition) {
+        Set<Integer> retValue = new HashSet();
+        SerializableStateObservation projectedSSO = SSOModifier.copy(sso);
+        moveSprite(objId, category, newPosition, projectedSSO);
+        constructGrid(projectedSSO);
+        Set<Pair<Integer, Integer>> collisions = newCollisions(sso, projectedSSO);
+        for (Pair<Integer, Integer> c : collisions) {
+            if (c.getValue0() == objId) {
+                retValue.add(c.getValue1());
+            }
+            if (c.getValue1() == objId) {
+                retValue.add(c.getValue0());
+            }
+        }
+        return retValue;
+    }
+
+    public static Set<Pair<Integer, Integer>> newCollisions(SerializableStateObservation start, SerializableStateObservation finish) {
+        Set<Pair<Integer, Integer>> collisionsBefore = SSOModifier.detectCollisions(start);
+        Set<Pair<Integer, Integer>> collisionsAfter = SSOModifier.detectCollisions(finish);
+        collisionsAfter.removeAll(collisionsBefore);
+        return collisionsAfter;
+    }
+
     public static final int TYPE_AVATAR = 0;
     public static final int TYPE_RESOURCE = 1;
     public static final int TYPE_PORTAL = 2;
@@ -301,6 +333,12 @@ public class SSOModifier {
     private static Observation[][] getObsArrayForCategory(int category, SerializableStateObservation sso) {
         Observation[][] obsArray = new Observation[1][1];
         switch (category) {
+            case TYPE_AVATAR:
+                obsArray[0][0] = new Observation();
+                obsArray[0][0].position = positionOf(0, sso);
+                obsArray[0][0].category = 0;
+                obsArray[0][0].itype = sso.avatarType;
+                break;
             case TYPE_RESOURCE:
                 obsArray = sso.resourcesPositions;
                 break;

@@ -51,10 +51,6 @@ public class ActionValueApproximatorTest {
         });
         stateOnly = new LinearValueFunction(features, "ENTROPY", 100, 0.9, false);
 
-        independent.value(empty, ACTIONS.ACTION_LEFT);
-        independent.value(empty, ACTIONS.ACTION_ESCAPE);
-        independent.value(empty, ACTIONS.ACTION_DOWN);
-
         sso = SSOModifier.constructEmptySSO();
         sso.NPCPositions = new Observation[1][1];
         sso.movablePositions = new Observation[1][2];
@@ -64,6 +60,10 @@ public class ActionValueApproximatorTest {
 
         gst = new GameStatusTrackerWithHistory();
         gst.update(sso);
+
+        independent.value(gst, ACTIONS.ACTION_LEFT);
+        independent.value(gst, ACTIONS.ACTION_ESCAPE);
+        independent.value(gst, ACTIONS.ACTION_DOWN);
 
         nextSSO = SSOModifier.constructEmptySSO();
         nextSSO.NPCPositions = new Observation[1][1];
@@ -104,10 +104,10 @@ public class ActionValueApproximatorTest {
         independent.setCoeffFor(0, 339, 2.0);   // used
         independent.setCoeffFor(2, 339, -10.0);  // for ACTIONS_ESCAPE
 
-        assertEquals(independent.value(sso, ACTIONS.ACTION_LEFT), 0.0, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_ESCAPE), -10.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_LEFT), 0.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_ESCAPE), -10.0, 0.001);
         // and an unseen action
-        assertEquals(independent.value(sso, ACTIONS.ACTION_RIGHT), 0.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_RIGHT), 0.0, 0.001);
     }
 
     @Test
@@ -163,10 +163,11 @@ public class ActionValueApproximatorTest {
         independent.setCoeffFor(0, 339, 2.0);   // used
         independent.setCoeffFor(1, 339, 1.0);   // ACTION_LEFT
         independent.setCoeffFor(2, 339, -1.0);   // ACTION_ESCAPE
+        independent.setCoeffFor(2, 339, -1.0);   // ACTION_ESCAPE
         assertEquals(independent.value(sso), 2.0, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_LEFT), 1.0, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_NIL), 0.0, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_ESCAPE), -1.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_LEFT), 1.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_NIL), 0.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_ESCAPE), -1.0, 0.001);
 
         SARTuple trainingInstance = new SARTuple(gst, nextSSO, ACTIONS.ACTION_ESCAPE, allActions, allActions, 1.0);
         trainingInstance.target = 1.0;
@@ -186,8 +187,8 @@ public class ActionValueApproximatorTest {
         assertEquals(independent.getCoeffFor(2, 339), 0.99  * (-1.0 + 1.0), 0.001); //changed
 
         assertEquals(independent.value(sso), 2.0, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_LEFT), 1.0, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_NIL), 0.0, 0.001);
-        assertEquals(independent.value(sso, ACTIONS.ACTION_ESCAPE), 0.0 + 0.99 * 2.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_LEFT), 1.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_NIL), 0.0, 0.001);
+        assertEquals(independent.value(gst, ACTIONS.ACTION_ESCAPE), 0.0 + 0.99 * 2.0, 0.001);
     }
 }

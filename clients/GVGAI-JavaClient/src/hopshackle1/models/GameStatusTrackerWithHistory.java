@@ -12,9 +12,10 @@ public class GameStatusTrackerWithHistory extends GameStatusTracker {
     private Map<Integer, List<Pair<Integer, Vector2d>>> velocityHistory = new HashMap(); // full trajectories for each sprite, by tick number
     private Map<Integer, Types.ACTIONS> avatarActions = new HashMap();
     private Map<Integer, Pair<Integer, Integer>> lifeSpan = new HashMap();
+    private Map<Integer, GameStatusTracker> gstHistory = new HashMap();
 
     public GameStatusTrackerWithHistory() {
-
+        lifeSpan.put(0, new Pair(0, 0));
     }
 
     public GameStatusTrackerWithHistory(GameStatusTrackerWithHistory gst) {
@@ -50,10 +51,14 @@ public class GameStatusTrackerWithHistory extends GameStatusTracker {
             velocityHistory.put(0, velHist);
         }
 
+        gstHistory.put(currentTick, new GameStatusTracker(this));
+            // We have already updated the GST fields in super.update(sso) above
+
         avatarActions.put(currentTick, sso.avatarLastAction);
         for (int i = 1; i <= 6; i++) {
-            List<Integer> sprites = getAllSpritesOfCategory(i);
-            for (int id : sprites) {
+            List<Pair<Integer, Integer>> sprites = SSOModifier.getSpritesOfCategory(i, sso);
+            for (Pair<Integer, Integer> p : sprites) {
+                int id = p.getValue0();
                 Vector2d currentPos = getCurrentPosition(id);
                 Vector2d velocity = getCurrentVelocity(id);
                 List<Pair<Integer, Vector2d>> traj = new ArrayList();
@@ -73,7 +78,7 @@ public class GameStatusTrackerWithHistory extends GameStatusTracker {
         }
         // now we check for any previously tracked sprites that have vanished
         for (int id : previousPositions.keySet()) {
-            if (!currentPositions.containsKey(id)) {
+            if (!isExtant(id)) {
                 // has vanished
                 lifeSpan.put(id, new Pair(lifeSpan.get(id).getValue0(), currentTick));
             }
@@ -86,12 +91,16 @@ public class GameStatusTrackerWithHistory extends GameStatusTracker {
         return HopshackleUtilities.cloneList(retValue);
     }
 
+    public GameStatusTracker getGST(int tick) {
+        return gstHistory.get(tick);
+    }
+
     public List<Pair<Integer, Vector2d>> getVelocityTrajectory(int id) {
         List<Pair<Integer, Vector2d>> retValue = velocityHistory.getOrDefault(id, new ArrayList());
         return HopshackleUtilities.cloneList(retValue);
     }
 
-    public Types.ACTIONS getAvatarAction(int tick) {
+    public Types.ACTIONS getLastAvatarAction(int tick) {
         return avatarActions.getOrDefault(tick, Types.ACTIONS.ACTION_NIL);
     }
 

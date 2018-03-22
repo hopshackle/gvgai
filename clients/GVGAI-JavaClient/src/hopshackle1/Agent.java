@@ -30,10 +30,12 @@ public class Agent extends utils.AbstractPlayer {
     public double gamma = 0.95;
     public double alpha = 0.001;
     public double lambda = 0.0001;
-    private double gameWinBonus = 10.0;
+    private double gameWinBonus = 100.0;
     private EntityLog logFile;
-    private boolean debug = false;
+    private boolean debug = true;
+    private boolean detailedPredictionDebug = false;
     private ActionValueFunctionApproximator QFunction;
+    private boolean firstGame = true;
     private BehaviourModel model;
     private GameStatusTrackerWithHistory gst;
     private Map<Integer, Pair<Integer, Double>> accuracyTracker;
@@ -65,17 +67,17 @@ public class Agent extends utils.AbstractPlayer {
         logFile = new EntityLog("Hopshackle1");
 
         featureSets.add(new AvatarMeshWidthOneFeatureSet(2));
-        featureSets.add(new AvatarMeshWidthThreeFeatureSet(1));
+        //       featureSets.add(new AvatarMeshWidthThreeFeatureSet(1));
         featureSets.add(new GlobalPopulationFeatureSet());
         featureSets.add(new CollisionFeatures());
 
         //QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
         model = new BehaviouralLookaheadFunction();
-        LookaheadLinearActionValue qf =  new LookaheadLinearActionValue(featureSets, gamma, debug, (LookaheadFunction) model);
-        qf.setDefaultFeatureCoefficient(10.0);
+        LookaheadLinearActionValue qf = new LookaheadLinearActionValue(featureSets, gamma, debug, (LookaheadFunction) model);
+        qf.setDefaultFeatureCoefficient(1.0);
         QFunction = qf;
         rewardCalculator = new QLearning(1, alpha, gamma, lambda, QFunction);
-        policy = new BoltzmannPolicy(QFunction, 0.1);
+        policy = new BoltzmannPolicy(QFunction, 1.0);
         rl = (QLearning) rewardCalculator;
     }
 
@@ -122,7 +124,18 @@ public class Agent extends utils.AbstractPlayer {
         }
         gst.update(sso);
 
-        if (model != null) {
+        Types.ACTIONS action = policy.chooseAction(sso.getAvailableActions(), gst);
+        if (debug) {
+            logFile.log(String.format("Action %s taken with Avatar at %.0f/%.0f", action.toString(), sso.avatarPosition[0], sso.avatarPosition[1]));
+            logFile.log("With underlying pdf:");
+            double[] pdf = policy.pdfOver(sso.getAvailableActions(), gst);
+            for (int i = 0; i < pdf.length; i++) {
+                logFile.log(String.format("\t%s\t%.2f", sso.getAvailableActions().get(i), pdf[i]));
+            }
+            logFile.log(model.toString());
+        }
+
+        if (!firstGame && model != null) {
             // score the result of our predictions
             if (!predictions.isEmpty()) {
                 Map<Integer, Pair<Integer, Double>> accuracyBySpriteType = SSOModifier.accuracyOf(predictions, sso);
@@ -131,32 +144,30 @@ public class Agent extends utils.AbstractPlayer {
                     int nSprite = accuracyBySpriteType.get(spriteType).getValue0();
                     double acc = accuracyBySpriteType.get(spriteType).getValue1();
                     accuracyTracker.put(spriteType, new Pair(runningAcc.getValue0() + nSprite, runningAcc.getValue1() + acc * nSprite));
-                    if (debug) logFile.log(String.format("Accuracy %.2f for predictions of %d instances of %d",
-                            nSprite, acc, spriteType));
+                    if (debug) {
+                        logFile.log(String.format("Accuracy %.2f for predictions of %d instances of %d",
+                                acc, nSprite, spriteType));
+                    }
                 }
             }
+
             // then we track predictions for comparison to actual results
             predictions = new HashMap();
             List<Pair<Integer, Integer>> allSprites = SSOModifier.getAllSprites(sso,
-                    new int[]{SSOModifier.TYPE_FROMAVATAR, SSOModifier.TYPE_MOVABLE, SSOModifier.TYPE_NPC});
+                    new int[]{SSOModifier.TYPE_AVATAR, SSOModifier.TYPE_FROMAVATAR, SSOModifier.TYPE_MOVABLE, SSOModifier.TYPE_NPC});
             for (Pair<Integer, Integer> s : allSprites) {
                 int spriteID = s.getValue0();
                 Vector2d currentPosition = SSOModifier.positionOf(spriteID, sso);
-                List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(gst, spriteID, sso.avatarLastAction);
+                List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(gst, spriteID, action);
                 predictions.put(spriteID, pdf);
-                if (debug) {
+                if (detailedPredictionDebug) {
                     StringBuilder msg = new StringBuilder(String.format("T:%d ID:%d at %s\n", s.getValue1(), spriteID, currentPosition.toString()));
                     for (Pair<Double, Vector2d> option : pdf) {
-                        msg.append(String.format("\t%.2f\t%s\n", option.getValue0(), option.getValue1().toString()));
+                        msg.append(String.format("\t%.2f\t%s", option.getValue0(), option.getValue1().toString()));
                     }
                     logFile.log(msg.toString());
                 }
             }
-        }
-
-        Types.ACTIONS action = policy.chooseAction(sso.getAvailableActions(), sso);
-        if (debug) {
-            logFile.log(String.format("Action %s taken with Avatar at %.0f/%.0f", action.toString(), sso.avatarPosition[0], sso.avatarPosition[1]));
         }
 
         Trainable thingToTrain = null;
@@ -206,6 +217,9 @@ public class Agent extends utils.AbstractPlayer {
         }
 
         gst.update(sso);
+        if (firstGame) {
+            firstGame = false;
+        }
         if (model != null)
             model.updateModelStatistics(gst);
 
@@ -226,7 +240,7 @@ public class Agent extends utils.AbstractPlayer {
             msg.append(String.format("\tSprite Type: %s\t%.0f%%\n", spriteType, 100.0 * results.getValue1() / results.getValue0()));
         }
         logFile.log(msg.toString());
-        logFile.log("Total new features in episode: " +newFeaturesInEpisode + "\n");
+        logFile.log("Total new features in episode: " + newFeaturesInEpisode + "\n");
         logFile.flush();
 
         last_score_ = 0.0;

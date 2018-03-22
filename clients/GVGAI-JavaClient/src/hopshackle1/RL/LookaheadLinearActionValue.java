@@ -55,11 +55,6 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     }
 
     @Override
-    public double value(SerializableStateObservation sso, ACTIONS a) {
-        throw new AssertionError("Lookahead function cannot look ahead from an sso. It needs a GameStatusTracker");
-    }
-
-    @Override
     public double value(GameStatusTracker gst, ACTIONS a) {
         SerializableStateObservation forward = lookahead.rollForward(gst, a);
         return value(forward);
@@ -68,7 +63,12 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     @Override
     public double value(SerializableStateObservation sso) {
         State state = calculateState(sso);
-        return value(state);
+        double retValue = value(state);
+        if (debug) {
+            logFile.log(String.format("Total value for state at t=%d is %.2f", sso.gameTick, retValue));
+            logFile.flush();
+        }
+        return retValue;
     }
 
     @Override
@@ -78,18 +78,13 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
         ACTIONS actionChosen = null;
         for (ACTIONS action : actions) {
             SerializableStateObservation forward = lookahead.rollForward(gst, action);
-            double actionValue = value(forward, action);
+            double actionValue = value(forward);
             if (actionValue > retValue) {
                 retValue = actionValue;
                 actionChosen = action;
             }
         }
         return new ActionValue(actionChosen, retValue);
-    }
-
-    @Override
-    public ActionValue valueOfBestAction(SerializableStateObservation sso, List<ACTIONS> actions) {
-        throw new AssertionError("Lookahead function cannot look ahead from an sso. It needs a GameStatusTracker");
     }
 
     @Override
@@ -142,12 +137,8 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
             double coeff = getCoeffFor(feature);
             retValue += state.features.get(feature) * coeff;
             if (debug) {
-                logFile.log(String.format("\tFeature %d\thas coefficient %.2f for state value", feature, coeff));
+             //   logFile.log(String.format("\tFeature %d\thas coefficient %.2f for state value", feature, coeff));
             }
-        }
-        if (debug) {
-            logFile.log(String.format("Total value for state is %.2f", retValue));
-            logFile.flush();
         }
         return retValue;
     }

@@ -3,6 +3,7 @@ package hopshackle1.Policies;
 import hopshackle1.*;
 import hopshackle1.RL.ActionValue;
 import hopshackle1.RL.ActionValueFunctionApproximator;
+import hopshackle1.models.GameStatusTracker;
 import serialization.SerializableStateObservation;
 import serialization.Types.*;
 
@@ -22,11 +23,12 @@ public class BoltzmannPolicy implements Policy {
         if (debug) logFile = new EntityLog("Boltzmann");
     }
 
-    public double[] pdfOver(SerializableStateObservation sso, List<ACTIONS> actions) {
+    @Override
+    public double[] pdfOver(List<ACTIONS> actions, GameStatusTracker gst) {
         double[] retValue = new double[actions.size()];
         int count = 0;
         for (ACTIONS a : actions) {
-            retValue[count] = theta.value(sso, a);
+            retValue[count] = theta.value(gst, a);
             retValue[count] /= temperature;
             count++;
         }
@@ -35,10 +37,10 @@ public class BoltzmannPolicy implements Policy {
     }
 
     @Override
-    public ACTIONS chooseAction(List<ACTIONS> availableActions, SerializableStateObservation sso) {
+    public ACTIONS chooseAction(List<ACTIONS> availableActions, GameStatusTracker gst) {
         ActionValue choice = null;
 
-        double[] pdf = pdfOver(sso, availableActions);
+        double[] pdf = pdfOver(availableActions, gst);
         double roll = rnd.nextDouble();
         if (debug) {
             logFile.log("PDF for actions is:");

@@ -101,7 +101,7 @@ public class Vector2d
      */
     @Override
     public String toString() {
-        return x + " : " + y;
+        return String.format("%.1f : %.1f", x, y);
     }
 
     /**

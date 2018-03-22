@@ -17,6 +17,7 @@ public class SimpleAvatarModel implements BehaviourModel {
     //  5 4 3       direction is one of these numbers - half-right hand turns from straight up
     private int[] xChange = {0, 1, 1, 1, 0, -1, -1, -1, 0};
     private int[] yChange = {-1, -1, 0, 1, 1, 1, 0, -1, 0};
+    private Map<Integer, Pair<Double, Double>> passable = new HashMap();
 
     public SimpleAvatarModel(int block) {
         blockSize = block;
@@ -36,10 +37,34 @@ public class SimpleAvatarModel implements BehaviourModel {
     @Override
     public void updateModelStatistics(GameStatusTrackerWithHistory gst) {
         List<Pair<Integer, Vector2d>> avatarVelocities = gst.getVelocityTrajectory(0);
-        for (Pair<Integer, Vector2d> point : avatarVelocities) {
-            int tick = point.getValue0();
-            ACTIONS lastMove = gst.getAvatarAction(tick);
-            Vector2d v = point.getValue1();
+        List<Pair<Integer, Vector2d>> avatarPositions = gst.getTrajectory(0);
+        Vector2d lastPosition = null;
+        GameStatusTracker lastGST = null;
+        for (int i = 0; i < avatarVelocities.size(); i++) {
+            int tick = avatarVelocities.get(i).getValue0();
+            ACTIONS lastMove = gst.getLastAvatarAction(tick);
+            Vector2d v = avatarVelocities.get(i).getValue1();
+            Vector2d pos = avatarPositions.get(i).getValue1();
+            if (lastPosition != null) {
+                if (blockOf(pos) != blockOf(lastPosition)) {    // we did move
+                    Set<Integer> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, gst.getCurrentSSO(), pos);
+                    for (int c : collisionIDs) {
+                        updatePassability(gst.getType(c), 1.0);
+                    }
+                } else { // we stayed in same block
+                    // now the counterfactual for moves that did not happen
+                    List<Pair<Double, Vector2d>> predictions = nextMovePdf(lastGST, 0, lastMove);
+                    for (Pair<Double, Vector2d> pred : predictions) {
+                        boolean movedBlock = blockOf(pred.getValue1()) == blockOf(lastPosition);
+                        if (movedBlock) { // should have moved; but stayed in same place
+                            Set<Integer> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, gst.getCurrentSSO(), pred.getValue1());
+                            for (int c : collisionIDs) {
+                                updatePassability(gst.getType(c), -pred.getValue0());
+                            }
+                        }
+                    }
+                }
+            }
 
             int[] count = counts.get(lastMove);
             int heading = HopshackleUtilities.directionOf(v).getValue1();
@@ -48,6 +73,26 @@ public class SimpleAvatarModel implements BehaviourModel {
             } else {
                 count[heading]++;
             }
+            lastPosition = pos;
+            lastGST = gst.getGST(tick);
+        }
+    }
+
+    private int blockOf(Vector2d pos) {
+        int x = (int) pos.x / blockSize;
+        int y = (int) pos.y / blockSize;
+        return x + 307 * y;
+    }
+
+    private void updatePassability(int type, double change) {
+        if (!passable.containsKey(type)) {
+            passable.put(type, new Pair(5.0, 5.0));
+        }
+        Pair<Double, Double> currentVal = passable.get(type);
+        if (change > 0.00) {
+            passable.put(type, new Pair(currentVal.getValue0() + change, currentVal.getValue1()));
+        } else {
+            passable.put(type, new Pair(currentVal.getValue0(), currentVal.getValue1() - change));
         }
     }
 
@@ -80,6 +125,8 @@ public class SimpleAvatarModel implements BehaviourModel {
     public List<Pair<Double, Vector2d>> nextMovePdf(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
         int[] count = counts.get(avatarMove);
         List<Pair<Double, Vector2d>> retValue = new ArrayList();
+        List<Vector2d> positions = new ArrayList();
+        List<Double> pdf = new ArrayList();
         Vector2d currentPosition = gst.getCurrentPosition(0);
         double totalCount = 0.0;
         for (int i = 0; i < count.length; i++) {
@@ -91,9 +138,27 @@ public class SimpleAvatarModel implements BehaviourModel {
                 double p = (double) count[i] / totalCount;
                 double new_x = currentPosition.x + blockSize * xChange[i];
                 double new_y = currentPosition.y + blockSize * yChange[i];
-                Pair<Double, Vector2d> option = new Pair(p, new Vector2d(new_x, new_y));
-                retValue.add(option);
+                Vector2d newPosition = new Vector2d(new_x, new_y);
+
+                if (blockOf(newPosition) != blockOf(currentPosition)) {
+                    // modify p to take account of passability
+                    Set<Integer> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, gst.getCurrentSSO(), newPosition);
+                    for (int c : collisionIDs) {
+                        int type = gst.getType(c);
+                        if (passable.containsKey(type)) {
+                            p *= passable.get(type).getValue0() / (passable.get(type).getValue0() + passable.get(type).getValue1());
+                        } else {
+                            p *= 0.5;
+                        }
+                    }
+                }
+                pdf.add(p);
+                positions.add(newPosition);
             }
+        }
+        double[] newPdf = HopshackleUtilities.normalise(pdf);
+        for (int i = 0; i < positions.size(); i++) {
+            retValue.add(new Pair(newPdf[i], positions.get(i)));
         }
 
         return retValue;
@@ -102,5 +167,20 @@ public class SimpleAvatarModel implements BehaviourModel {
     @Override
     public boolean isValidFor(GameStatusTracker gst, int id) {
         return (id == 0);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder retValue = new StringBuilder();
+        for (ACTIONS action : counts.keySet()) {
+            retValue.append(String.format("Action: %s\t%s\n", action,
+                    HopshackleUtilities.formatArray(counts.get(action), "|", "%d"))
+            );
+        }
+        for (int k : passable.keySet()) {
+            double p = passable.get(k).getValue0() / (passable.get(k).getValue0() + passable.get(k).getValue1());
+            retValue.append(String.format("P%d=%.2f (%.1f : %.1f)\t", k, p, passable.get(k).getValue0(), passable.get(k).getValue1()));
+        }
+        return retValue.toString();
     }
 }

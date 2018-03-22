@@ -110,14 +110,13 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
     }
 
     @Override
-    public double value(SerializableStateObservation sso, ACTIONS action) {
-        State state = calculateState(sso);
-        return value(state, action);
-    }
-
-    @Override
     public double value(GameStatusTracker gst, ACTIONS action) {
         return value(gst.getCurrentSSO(), action);
+    }
+
+    private double value(SerializableStateObservation sso, ACTIONS action) {
+        State state = calculateState(sso);
+        return value(state, action);
     }
 
     private double value(State state, ACTIONS action) {
@@ -139,12 +138,11 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
 
     @Override
     public ActionValue valueOfBestAction(GameStatusTracker gst, List<ACTIONS> actions) {
+        if (gst == null) return new ActionValue(ACTIONS.ACTION_NIL, 0.0);
         return valueOfBestAction(gst.getCurrentSSO(), actions);
     }
 
-
-    @Override
-    public ActionValue valueOfBestAction(SerializableStateObservation sso, List<ACTIONS> actions) {
+    private ActionValue valueOfBestAction(SerializableStateObservation sso, List<ACTIONS> actions) {
         if (actions.isEmpty() || sso == null) return new ActionValue(ACTIONS.ACTION_NIL, 0.0);
         double retValue = Double.NEGATIVE_INFINITY;
         State state = calculateState(sso); // to avoid repeating for every action

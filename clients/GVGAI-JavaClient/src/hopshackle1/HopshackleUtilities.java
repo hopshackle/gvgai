@@ -184,6 +184,14 @@ public class HopshackleUtilities {
         }
         return retValue.toString();
     }
+    public static String formatArray(int[] array, String delimiter, String format) {
+        StringBuilder retValue = new StringBuilder();
+        for (int i = 0; i < array.length; i++) {
+            if (i > 0) retValue.append(delimiter);
+            retValue.append(String.format(format, array[i]));
+        }
+        return retValue.toString();
+    }
 
     public interface Formatter {
         public String format(Object o);
@@ -247,6 +255,30 @@ public class HopshackleUtilities {
             }
         }
         return array[k];
+    }
+
+    public static double[] normalise(List<Double> input) {
+        double[] outputs = new double[input.size()];
+        double total = 0.0;
+        for (int i = 0; i < input.size(); i++) {
+            total += input.get(i);
+        }
+        for (int i = 0; i < outputs.length; i++) {
+            outputs[i] = input.get(i) / total;
+        }
+        return outputs;
+    }
+
+    public static double[] normalise(double[] input) {
+        double[] outputs = new double[input.length];
+        double total = 0.0;
+        for (int i = 0; i < input.length; i++) {
+            total += input[i];
+        }
+        for (int i = 0; i < outputs.length; i++) {
+            outputs[i] = input[i] / total;
+        }
+        return outputs;
     }
 
     public static double[] expNormalise(double[] input) {

@@ -41,10 +41,6 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
     }
 
     @Override
-    public double value(SerializableStateObservation sso, ACTIONS a) {
-        throw new AssertionError("No point asking for an Action Value from a State Value function");
-    }
-    @Override
     public double value(GameStatusTracker gst, ACTIONS a) {
         throw new AssertionError("No point asking for an Action Value from a State Value function");
     }
@@ -54,10 +50,6 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
         return underlying.value(sso);
     }
 
-    @Override
-    public ActionValue valueOfBestAction(SerializableStateObservation s, List<ACTIONS> actions) {
-        throw new AssertionError("No point asking for an Action Value from a State Value function");
-    }
     @Override
     public ActionValue valueOfBestAction(GameStatusTracker gst, List<ACTIONS> actions) {
         throw new AssertionError("No point asking for an Action Value from a State Value function");

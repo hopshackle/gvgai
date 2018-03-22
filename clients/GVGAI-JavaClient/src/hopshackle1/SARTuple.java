@@ -11,8 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class SARTuple {
 
     private static AtomicInteger counter = new AtomicInteger(0);
-    public GameStatusTracker startGST;
-    public SerializableStateObservation nextSSO;
+    public GameStatusTracker startGST, nextGST;
     public ACTIONS action;
     public List<ACTIONS> availableStartActions, availableEndActions;
     public double reward, target;
@@ -20,7 +19,10 @@ public class SARTuple {
 
     public SARTuple(GameStatusTracker gst, SerializableStateObservation nextSSO, ACTIONS actionChosen, List<ACTIONS> allActionsFromStart, List<ACTIONS> allActionsFromNext, double reward) {
         this.startGST = new GameStatusTracker(gst);
-        this.nextSSO = nextSSO != null ? SSOModifier.copy(nextSSO) : null;
+        if (nextSSO != null) {
+            this.nextGST = new GameStatusTracker(gst);
+            nextGST.update(SSOModifier.copy(nextSSO));
+        }
         this.action = actionChosen;
         this.reward = reward;
         this.availableStartActions = HopshackleUtilities.cloneList(allActionsFromStart);

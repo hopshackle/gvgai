@@ -19,7 +19,7 @@ public class SimpleSpriteModelTest {
     @Before
     public void setup() {
         sso = SSOModifier.constructEmptySSO();
-        model = new SimpleSpriteModel(5, 4);
+        model = new SimpleSpriteModel(4);
         gst = new GameStatusTrackerWithHistory();
     }
 
@@ -219,9 +219,9 @@ public class SimpleSpriteModelTest {
         sso.avatarPosition = new double[] {50, 80};
         gst.update(sso);
 
-        model = new SimpleSpriteModel(10, new int[]{5, 0, 0, 0, 0, 0, 0, 0},0, 4);
-        BehaviourModel turnRight = new SimpleSpriteModel(10, new int[]{0, 0, 500, 0, 0, 0, 0, 0}, 0, 6);
-        BehaviourModel stayStill = new SimpleSpriteModel(10, new int[]{0, 0, 0, 0, 0, 0, 0, 0}, 500, 2);
+        model = new SimpleSpriteModel(new int[]{5, 0, 0, 0, 0, 0, 0, 0},0, 4);
+        BehaviourModel turnRight = new SimpleSpriteModel(new int[]{0, 0, 500, 0, 0, 0, 0, 0}, 0, 6);
+        BehaviourModel stayStill = new SimpleSpriteModel(new int[]{0, 0, 0, 0, 0, 0, 0, 0}, 500, 2);
 
         // model will always move forward
    //     model.updateModelStatistics(gst);

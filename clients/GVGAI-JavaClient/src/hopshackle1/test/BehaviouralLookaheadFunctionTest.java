@@ -171,13 +171,13 @@ public class BehaviouralLookaheadFunctionTest {
         assertFalse(baseStates[2].equals(baseStates[3]));
         assertTrue(baseStates[0].equals(baseStates[3]));
 
-        assertTrue(baseStates[0].features.containsKey(44737));
-        assertTrue(baseStates[0].features.containsKey(39353)); // the avatar + block
-        assertTrue(baseStates[0].features.containsKey(30012));
+        assertTrue(baseStates[0].features.containsKey(44741));
+        assertTrue(baseStates[0].features.containsKey(39357)); // the avatar + block
+        assertTrue(baseStates[0].features.containsKey(30016));
 
-        assertTrue(baseStates[1].features.containsKey(39353)); // the avatar + block
-        assertTrue(baseStates[2].features.containsKey(39353)); // the avatar + block
-        assertTrue(baseStates[3].features.containsKey(39353)); // the avatar + block
+        assertTrue(baseStates[1].features.containsKey(39357)); // the avatar + block
+        assertTrue(baseStates[2].features.containsKey(39357)); // the avatar + block
+        assertTrue(baseStates[3].features.containsKey(39357)); // the avatar + block
 
         assertEquals(baseStates[0].features.size(), 3); // avatar, avatar+block1, block1
         assertEquals(baseStates[1].features.size(), 3); // no move
@@ -198,13 +198,13 @@ public class BehaviouralLookaheadFunctionTest {
         assertFalse(baseStates[2].equals(baseStates[3]));
         assertFalse(baseStates[0].equals(baseStates[3])); // this time the alien has arrived
 
-        assertTrue(baseStates[0].features.containsKey(44737));
-        assertTrue(baseStates[0].features.containsKey(39353)); // the avatar
-        assertTrue(baseStates[0].features.containsKey(30012));
+        assertTrue(baseStates[0].features.containsKey(44741));
+        assertTrue(baseStates[0].features.containsKey(39357)); // the avatar
+        assertTrue(baseStates[0].features.containsKey(30016));
 
-        assertTrue(baseStates[1].features.containsKey(39353)); // the avatar
-        assertTrue(baseStates[2].features.containsKey(39353)); // the avatar
-        assertTrue(baseStates[3].features.containsKey(39353)); // the avatar
+        assertTrue(baseStates[1].features.containsKey(39357)); // the avatar
+        assertTrue(baseStates[2].features.containsKey(39357)); // the avatar
+        assertTrue(baseStates[3].features.containsKey(39357)); // the avatar
 
         assertEquals(baseStates[0].features.size(), 4); // avatar, avatar+block1, block1, block2
         assertEquals(baseStates[1].features.size(), 4); // no move
