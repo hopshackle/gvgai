@@ -7,7 +7,6 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" name="CoreSimulation" level="application" />
     <orderEntry type="library" name="junit-4.12" level="application" />
     <orderEntry type="library" name="simulation lbraries" level="application" />
   </component>

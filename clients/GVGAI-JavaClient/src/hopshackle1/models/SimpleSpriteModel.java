@@ -97,9 +97,9 @@ public class SimpleSpriteModel implements BehaviourModel {
                 Vector2d newPosition = newHeading.mul(speed[i]).add(currentPos);
                 if (!(blockOf(newPosition, gst.getBlockSize()) == blockOf(currentPos, gst.getBlockSize()))) {
                     // modify p to take account of passability changes
-                    Set<Integer> collisions = SSOModifier.newCollisionsOf(objID, gst.getCategory(objID), gst.getCurrentSSO(), newPosition);
-                    for (int c : collisions) {
-                        int type = gst.getType(c);
+                    List<Pair<Integer, Vector2d>> collisions = SSOModifier.newCollisionsOf(objID, gst.getCategory(objID), gst.getCurrentSSO(), newPosition);
+                    for (Pair<Integer, Vector2d> c : collisions) {
+                        int type = gst.getType(c.getValue0());
                         if (passable.containsKey(type)) {
                             p *= passable.get(type) / (passable.get(type) + 10.0);
                         } else {
@@ -143,11 +143,12 @@ public class SimpleSpriteModel implements BehaviourModel {
                 if (i > 0 && newPos.getCurrentPosition(id) != null) {
                     lastPos = gst.getGST(lastTick);
                     if (!(blockOf(lastPos.getCurrentPosition(id), gst.getBlockSize()) == blockOf(newPos.getCurrentPosition(id), gst.getBlockSize()))) {
-                        Set<Integer> newCollisions = SSOModifier.newCollisionsOf(id, gst.getCategory(id), gst.getCurrentSSO(), newPos.getCurrentPosition(id));
+                        // new collisions of the sprite if it moved (based on the sso *before* move to allow for annihilations
+                        List<Pair<Integer, Vector2d>> newCollisions = SSOModifier.newCollisionsOf(id, gst.getCategory(id), lastPos.getCurrentSSO(), newPos.getCurrentPosition(id));
 
                         Set<Integer> typesOfCollision = new HashSet();
-                        for (int collision : newCollisions) {
-                            typesOfCollision.add(lastPos.getType(collision));
+                        for (Pair<Integer, Vector2d> collision : newCollisions) {
+                            typesOfCollision.add(lastPos.getType(collision.getValue0()));
                         }
                         // we now have a list of the types we would have collided with
                         // when the most recent move was chosen

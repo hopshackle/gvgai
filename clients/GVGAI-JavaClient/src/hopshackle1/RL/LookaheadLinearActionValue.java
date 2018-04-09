@@ -2,6 +2,7 @@ package hopshackle1.RL;
 
 import hopshackle1.*;
 import hopshackle1.FeatureSets.FeatureSet;
+import hopshackle1.FeatureSets.FeatureSetLibrary;
 import hopshackle1.models.GameStatusTracker;
 import serialization.*;
 import serialization.Types.*;
@@ -13,16 +14,16 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     private Map<Integer, Double> coefficients;
     private FeatureSet[] featureSets;
     private boolean debug;
+    private boolean extremeDebug = false;
     private double gamma;
     private LookaheadFunction lookahead;
-    private EntityLog logFile;
+    private EntityLog logFile = Agent.logFile;
     private double defaultFeatureCoefficient;
 
     public LookaheadLinearActionValue(List<FeatureSet> features, double discountRate, boolean debug, LookaheadFunction lookahead) {
         this.debug = debug;
         this.lookahead = lookahead;
         this.gamma = discountRate;
-        if (debug) logFile = new EntityLog("LookaheadCoeff");
         coefficients = new HashMap();
         featureSets = new FeatureSet[features.size()];
         for (int i = 0; i < features.size(); i++) {
@@ -62,6 +63,10 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
 
     @Override
     public double value(SerializableStateObservation sso) {
+        if (extremeDebug) {
+            logFile.log("New SSO:");
+   //         logFile.log(sso.toString());
+        }
         State state = calculateState(sso);
         double retValue = value(state);
         if (debug) {
@@ -88,7 +93,7 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     }
 
     @Override
-    public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
+    public double learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
         SerializableStateObservation forward = lookahead.rollForward(tuple.startGST, tuple.action);
         State state = calculateState(forward);
         double currentValuation = value(state);
@@ -96,6 +101,7 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
         for (Integer feature : state.features.keySet()) {
             modifyCoeff(feature, delta, state.features.get(feature), rl);
         }
+        return delta;
     }
 
     private void modifyCoeff(int f, double delta, double fValue, ReinforcementLearningAlgorithm rl) {
@@ -105,7 +111,6 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     }
 
     public void refreshFrom(LookaheadLinearActionValue pcc) {
-        if (debug) logFile.log("Refreshing");
         coefficients = new HashMap();
         for (int i = 0; i < pcc.coefficients.size(); i++) {
             Map<Integer, Double> cloneActionTheta = new HashMap();
@@ -133,11 +138,12 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
 
     private double value(State state) {
         double retValue = 0.0;
+        if (extremeDebug) logFile.log("New state valuation for : ");
         for (int feature : state.features.keySet()) {
             double coeff = getCoeffFor(feature);
             retValue += state.features.get(feature) * coeff;
-            if (debug) {
-             //   logFile.log(String.format("\tFeature %d\thas coefficient %.2f for state value", feature, coeff));
+            if (extremeDebug) {
+                logFile.log(String.format("\t%.2f\t%d\t%s", coeff, feature, FeatureSetLibrary.getDescription(feature)));
             }
         }
         return retValue;
@@ -145,6 +151,18 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
 
     public void setDefaultFeatureCoefficient(double newValue) {
         defaultFeatureCoefficient = newValue;
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder retValue = new StringBuilder();
+        List<Integer> featureIDs = HopshackleUtilities.convertSetToList(coefficients.keySet());
+        Collections.sort(featureIDs);
+        for (int f : featureIDs) {
+            if (coefficients.get(f) != 1.0)
+                retValue.append(String.format("\t%d\t%.3f\t%s\n", f, coefficients.get(f), FeatureSetLibrary.getDescription(f)));
+        }
+        return retValue.toString();
     }
 }
 

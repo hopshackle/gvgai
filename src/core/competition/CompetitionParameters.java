@@ -12,12 +12,12 @@ public class CompetitionParameters
     /**
      * Milliseconds allowed per controller action.
      */
-    public static final int ACTION_TIME = 40;
+    public static final int ACTION_TIME = 100;
 
     /**
      * Milliseconds for controller disqualification, if it returns an action after this time.
      */
-    public static final int ACTION_TIME_DISQ = 100;
+    public static final int ACTION_TIME_DISQ = 500;
 
     /**
      * Milliseconds allowed for controller initialization.
@@ -27,7 +27,7 @@ public class CompetitionParameters
     /**
      * Milliseconds allowed for controller tear down.
      */
-    public static final int TEAR_DOWN_TIME = 100;
+    public static final int TEAR_DOWN_TIME = 200;
 
     /**
      * Milliseconds allowed for the level generator to generate a level

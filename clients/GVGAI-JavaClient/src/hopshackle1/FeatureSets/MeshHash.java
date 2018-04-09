@@ -68,11 +68,30 @@ public class MeshHash {
                     mesh[i][j].getObservations();
                     cellContents = "";
                     for (int[] detail : mesh[i][j].getObservations()) {
-                        cellContents += String.format("category=%d, itype=%d", detail[0], detail[1]);
+                        cellContents += String.format("cat=%d, type=%d", detail[0], detail[1]);
                     }
 
                 }
                 retValue.append(String.format("\t%d:%d %s\n", i, j, cellContents));
+            }
+        }
+        return retValue.toString();
+    }
+
+    public String abbrev() {
+        StringBuilder retValue = new StringBuilder(String.format(""));
+        for (int i = 0; i < mesh.length; i++) {
+            for (int j = 0; j < mesh[i].length; j++) {
+                String cellContents = "empty";
+                if (mesh[i][j] != null && mesh[i][j].getNbObservations() != 0) {
+                    mesh[i][j].getObservations();
+                    cellContents = "";
+                    for (int[] detail : mesh[i][j].getObservations()) {
+                        cellContents += String.format("cat=%d, type=%d", detail[0], detail[1]);
+                    }
+
+                }
+                retValue.append(String.format("%d:%d %s|", i, j, cellContents));
             }
         }
         return retValue.toString();

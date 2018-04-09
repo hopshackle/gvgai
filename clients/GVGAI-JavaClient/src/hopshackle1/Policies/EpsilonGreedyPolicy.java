@@ -37,7 +37,7 @@ public class EpsilonGreedyPolicy implements Policy {
     }
 
     @Override
-    public Types.ACTIONS chooseAction(List<Types.ACTIONS> availableActions, GameStatusTracker gst) {
+    public Types.ACTIONS chooseAction(List<Types.ACTIONS> availableActions, GameStatusTracker gst, int timeBudget) {
         ActionValue choice = null;
 
         if (rnd.nextDouble() < epsilon) {

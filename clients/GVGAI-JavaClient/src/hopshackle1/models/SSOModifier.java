@@ -298,18 +298,18 @@ public class SSOModifier {
         return retValue;
     }
 
-    public static Set<Integer> newCollisionsOf(int objId, int category, SerializableStateObservation sso, Vector2d newPosition) {
-        Set<Integer> retValue = new HashSet();
+    public static List<Pair<Integer, Vector2d>> newCollisionsOf(int objId, int category, SerializableStateObservation sso, Vector2d newPosition) {
+        List<Pair<Integer, Vector2d>> retValue = new ArrayList();
         SerializableStateObservation projectedSSO = SSOModifier.copy(sso);
         moveSprite(objId, category, newPosition, projectedSSO);
         constructGrid(projectedSSO);
         Set<Pair<Integer, Integer>> collisions = newCollisions(sso, projectedSSO);
         for (Pair<Integer, Integer> c : collisions) {
             if (c.getValue0() == objId) {
-                retValue.add(c.getValue1());
+                retValue.add(new Pair(c.getValue1(), SSOModifier.positionOf(c.getValue1(), sso)));
             }
             if (c.getValue1() == objId) {
-                retValue.add(c.getValue0());
+                retValue.add(new Pair(c.getValue0(), SSOModifier.positionOf(c.getValue0(), sso)));
             }
         }
         return retValue;

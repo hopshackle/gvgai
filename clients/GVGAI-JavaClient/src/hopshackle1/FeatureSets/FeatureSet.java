@@ -10,4 +10,5 @@ public interface FeatureSet {
      */
 
     void describeObservation(SerializableStateObservation obs, State state);
+
 }

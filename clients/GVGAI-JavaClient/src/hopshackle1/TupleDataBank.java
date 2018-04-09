@@ -3,6 +3,7 @@ package hopshackle1;
 import hopshackle1.RL.*;
 
 import java.util.*;
+import org.javatuples.*;
 
 public class TupleDataBank {
 
@@ -10,9 +11,11 @@ public class TupleDataBank {
     private int tupleLimit;
     private Random rnd = new Random();
     private boolean debug = false;
+    private double PRIORITISATION_THRESHOLD;
 
-    public TupleDataBank(int limit) {
+    public TupleDataBank(int limit, double threshold) {
         tupleLimit = limit;
+        PRIORITISATION_THRESHOLD = threshold;
     }
 
     public void addData(List<SARTuple> newData) {
@@ -27,21 +30,27 @@ public class TupleDataBank {
         return data;
     }
 
-    public SARTuple getTuple() {
+    private Pair<Integer, SARTuple> getTuple() {
         int roll = rnd.nextInt(data.size());
-        return data.get(roll);
+        return new Pair(roll, data.get(roll));
     }
 
     public void teach(Trainable fa, int milliseconds, ReinforcementLearningAlgorithm rl) {
         if (data.isEmpty()) return;
-        int tuplesUsed = 0;
+        int tuplesUsed = 0, tuplesFiltered = 0;
         long startTime = System.currentTimeMillis();
         do {
             tuplesUsed++;
-            fa.learnFrom(getTuple(), rl);
+            Pair<Integer, SARTuple> tupleData = getTuple();
+            double delta = fa.learnFrom(tupleData.getValue1(), rl);
+            if (Math.abs(delta) < PRIORITISATION_THRESHOLD) {
+                data.remove((int) tupleData.getValue0());
+                tuplesFiltered++;
+            }
         } while (System.currentTimeMillis() < startTime + milliseconds);
 
-        if (debug) System.out.println(String.format("%d tuples used in training in %d ms", tuplesUsed, System.currentTimeMillis() - startTime));
+        if (debug) System.out.println(String.format("%d tuples of %d used in training in %d ms (%d removed)",
+                tuplesUsed, data.size(), System.currentTimeMillis() - startTime, tuplesFiltered));
     }
 
 }

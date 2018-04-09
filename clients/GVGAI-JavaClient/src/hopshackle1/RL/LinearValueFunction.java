@@ -56,8 +56,8 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
     }
 
     @Override
-    public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
-        underlying.learnValueFrom(tuple, rl);
+    public double learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
+        return underlying.learnValueFrom(tuple, rl);
     }
 
 

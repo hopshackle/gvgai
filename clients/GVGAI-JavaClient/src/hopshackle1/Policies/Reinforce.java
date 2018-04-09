@@ -36,12 +36,12 @@ public class Reinforce implements Policy, Trainable {
     }
 
     @Override
-    public ACTIONS chooseAction(List<ACTIONS> availableActions, GameStatusTracker gst) {
-        return choicePolicy.chooseAction(availableActions, gst);
+    public ACTIONS chooseAction(List<ACTIONS> availableActions, GameStatusTracker gst, int timeBudget) {
+        return choicePolicy.chooseAction(availableActions, gst, timeBudget);
     }
 
     @Override
-    public void learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
+    public double learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
         double[] actionPDF = choicePolicy.pdfOver(tuple.availableStartActions, tuple.startGST);
         State startState = coeffs.calculateState(tuple.startGST.getCurrentSSO());
 
@@ -96,6 +96,7 @@ public class Reinforce implements Policy, Trainable {
             }
         }
         if (fullDebug) logFile.flush();
+        return target;
     }
 
     private void modifyCoeff(int f, int actionIndex, double rate, double target) {

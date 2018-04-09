@@ -447,13 +447,13 @@ public class SerializableStateObservation {
                 ", isAvatarAlive=" + isAvatarAlive +
                 ", availableActions=" + availableActions +
                 ", avatarResources=" + avatarResources +
-                ", observationGrid=" + java.util.Arrays.toString(observationGrid) +
-                ", NPCPositions=" + java.util.Arrays.toString(NPCPositions) +
-                ", immovablePositions=" + java.util.Arrays.toString(immovablePositions) +
-                ", movablePositions=" + java.util.Arrays.toString(movablePositions) +
-                ", resourcesPositions=" + java.util.Arrays.toString(resourcesPositions) +
-                ", portalsPositions=" + java.util.Arrays.toString(portalsPositions) +
-                ", fromAvatarSpritesPositions=" + java.util.Arrays.toString(fromAvatarSpritesPositions) +
+      //          ", observationGrid=" + java.util.Arrays.toString(observationGrid) +
+      //          ", NPCPositions=" + java.util.Arrays.toString(NPCPositions) +
+      //          ", immovablePositions=" + java.util.Arrays.toString(immovablePositions) +
+       //         ", movablePositions=" + java.util.Arrays.toString(movablePositions) +
+      //          ", resourcesPositions=" + java.util.Arrays.toString(resourcesPositions) +
+      //          ", portalsPositions=" + java.util.Arrays.toString(portalsPositions) +
+      //          ", fromAvatarSpritesPositions=" + java.util.Arrays.toString(fromAvatarSpritesPositions) +
                 "}\n" + observation;
     }
 }

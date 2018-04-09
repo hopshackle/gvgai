@@ -23,14 +23,17 @@ public class AvatarMeshWidthOneFeatureSet implements FeatureSet {
         for (int i = -distanceFromAvatar; i <= distanceFromAvatar; i++) {
             for (int j = -distanceFromAvatar; j <= distanceFromAvatar; j++) {
                 MeshHash mesh = new MeshHash(1, obs, i, j);
-                int feature = mesh.hashCode();
+                int meshHash = mesh.hashCode();
                 if (debug) {
-                    logFile.log(String.format("Base feature for %d/%d is %d", i, j, feature));
+                    logFile.log(String.format("Base feature for %d/%d is %d", i, j, meshHash));
                     logFile.log("\t" + mesh.toString());
                 }
-                if (feature != 0) {
-                    feature += (i + 1) * 6703 + (j + 1) * 28697;
+                if (meshHash != 0) {
+                    int feature = meshHash + (i + 1) * 6703 + (j + 1) * 28697;
                     retValue.setFeature(feature, 1.0);
+                    if (FeatureSetLibrary.debug) {
+                        FeatureSetLibrary.registerFeature(feature,  String.format("%d %s at %d:%d", meshHash, mesh.abbrev(), i, j));
+                    }
                 }
             }
         }

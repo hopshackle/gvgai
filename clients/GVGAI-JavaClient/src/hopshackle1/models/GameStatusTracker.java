@@ -49,19 +49,20 @@ public class GameStatusTracker {
             worldDimension[1] = sso.worldDimension[1];
             IDToCategoryAndType.put(0, new Pair(SSOModifier.TYPE_AVATAR, sso.avatarType));
         } else {
-            if (sso.gameTick - currentTick > 1)
-                throw new AssertionError("We expect to have every game tick registered. Actual difference is " + (sso.gameTick - currentTick));
+            if (sso.gameTick - currentTick != 1) {
+                //  throw new AssertionError("We expect to have every game tick registered. Actual difference is " + (sso.gameTick - currentTick));
+            }
         }
 
         Vector2d lastAvatarPos = currentPositions.get(0);
         currentTick = sso.gameTick;
-        Vector2d newAvatarPos = new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
-        currentPositions.put(0, new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]));
-        Vector2d avatarVelocity = (lastAvatarPos == null) ? stationary: new Vector2d(newAvatarPos).subtract(lastAvatarPos);
-        currentVelocities.put(0, avatarVelocity);
-        if (!avatarVelocity.equals(stationary)) {
-            lastDirection.put(0, avatarVelocity);
-        }
+            Vector2d newAvatarPos = new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
+            currentPositions.put(0, new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]));
+            Vector2d avatarVelocity = (lastAvatarPos == null) ? stationary : new Vector2d(newAvatarPos).subtract(lastAvatarPos);
+            currentVelocities.put(0, avatarVelocity);
+            if (!avatarVelocity.equals(stationary)) {
+                lastDirection.put(0, avatarVelocity);
+            }
 
         Set<Integer> allCurrentIDs = new HashSet();
         if (sso.isAvatarAlive) allCurrentIDs.add(0);
@@ -152,19 +153,20 @@ public class GameStatusTracker {
     }
 
     public void rollForward(List<BehaviourModel> models, ACTIONS avatarMove) {
-        SerializableStateObservation forwardStep = SSOModifier.copy(currentSSO);
-        forwardStep.gameTick++;
-        forwardStep.avatarLastAction = avatarMove == null ? ACTIONS.ACTION_NIL : avatarMove;
+    //   SerializableStateObservation forwardStep = SSOModifier.copy(currentSSO);
+        // don't think this is needed (I should have just cloned the SSO when cloning GST)
+        currentSSO.gameTick++;
+        currentSSO.avatarLastAction = avatarMove == null ? ACTIONS.ACTION_NIL : avatarMove;
         for (BehaviourModel model : models) {
             for (Integer id : currentPositions.keySet()) {
                 if (model.isValidFor(this, id)) {
                     Vector2d move = model.nextMoveRandom(this, id, avatarMove);
-                    SSOModifier.moveSprite(id, getCategory(id), move.x, move.y, forwardStep);
+                    SSOModifier.moveSprite(id, getCategory(id), move.x, move.y, currentSSO);
                 }
             }
         }
-        SSOModifier.constructGrid(forwardStep);
-        update(forwardStep);
+        SSOModifier.constructGrid(currentSSO);
+        update(currentSSO);
     }
 
     public void rollForward(BehaviourModel model, ACTIONS avatarMove) {

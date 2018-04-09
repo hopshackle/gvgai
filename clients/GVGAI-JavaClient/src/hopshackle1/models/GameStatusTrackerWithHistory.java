@@ -45,14 +45,12 @@ public class GameStatusTrackerWithHistory extends GameStatusTracker {
         List<Pair<Integer, Vector2d>> avatarTraj = trajectories.getOrDefault(0, new ArrayList());
         avatarTraj.add(new Pair(currentTick, newAvatarPos));
         trajectories.put(0, avatarTraj);
-        if (avatarVelocity != null) {
-            List<Pair<Integer, Vector2d>> velHist = velocityHistory.getOrDefault(0, new ArrayList());
-            velHist.add(new Pair(currentTick, avatarVelocity));
-            velocityHistory.put(0, velHist);
-        }
+        List<Pair<Integer, Vector2d>> velHist = velocityHistory.getOrDefault(0, new ArrayList());
+        velHist.add(new Pair(currentTick, avatarVelocity));
+        velocityHistory.put(0, velHist);
 
         gstHistory.put(currentTick, new GameStatusTracker(this));
-            // We have already updated the GST fields in super.update(sso) above
+        // We have already updated the GST fields in super.update(sso) above
 
         avatarActions.put(currentTick, sso.avatarLastAction);
         for (int i = 1; i <= 6; i++) {

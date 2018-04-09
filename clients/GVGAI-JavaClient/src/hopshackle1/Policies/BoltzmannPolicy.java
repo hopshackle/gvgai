@@ -37,7 +37,7 @@ public class BoltzmannPolicy implements Policy {
     }
 
     @Override
-    public ACTIONS chooseAction(List<ACTIONS> availableActions, GameStatusTracker gst) {
+    public ACTIONS chooseAction(List<ACTIONS> availableActions, GameStatusTracker gst, int timeBudget) {
         ActionValue choice = null;
 
         double[] pdf = pdfOver(availableActions, gst);

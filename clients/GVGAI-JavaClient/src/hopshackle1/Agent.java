@@ -29,9 +29,10 @@ public class Agent extends utils.AbstractPlayer {
     public int game_plays_;
     public double gamma = 0.95;
     public double alpha = 0.001;
-    public double lambda = 0.0001;
+    public double lambda = 0.00001;
     private double gameWinBonus = 100.0;
-    private EntityLog logFile;
+    private double gameLossMalus = 10.0;
+    public static EntityLog logFile;
     private boolean debug = true;
     private boolean detailedPredictionDebug = false;
     private ActionValueFunctionApproximator QFunction;
@@ -43,12 +44,16 @@ public class Agent extends utils.AbstractPlayer {
     private ReinforcementLearningAlgorithm rl;
     private List<FeatureSet> featureSets = new ArrayList();
     private LinkedList<SARTuple> currentTrajectory;
-    private Policy policy;
-    private TupleDataBank databank = new TupleDataBank(1000);
+    private Policy policy, initialPolicy;
+    private TupleDataBank databank = new TupleDataBank(500, 0.5);
     private Map<Integer, List<Pair<Double, Vector2d>>> predictions = new HashMap();
     private Map<Integer, Integer> featureSeenCount = new HashMap();
     private double rewardPerNewFeature = 0.1;
+    private double tickPenalty = 1.0;
+    private double defaultCoefficient = 1.0;
+    private double temperature = 1.0;
     private int newFeaturesInEpisode;
+    private long totalTime;
 
     /**
      * Public method to be called at the start of the communication. No game has been initialized yet.
@@ -68,16 +73,17 @@ public class Agent extends utils.AbstractPlayer {
 
         featureSets.add(new AvatarMeshWidthOneFeatureSet(2));
         //       featureSets.add(new AvatarMeshWidthThreeFeatureSet(1));
-        featureSets.add(new GlobalPopulationFeatureSet());
+   //     featureSets.add(new GlobalPopulationFeatureSet());
         featureSets.add(new CollisionFeatures());
 
         //QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
         model = new BehaviouralLookaheadFunction();
         LookaheadLinearActionValue qf = new LookaheadLinearActionValue(featureSets, gamma, debug, (LookaheadFunction) model);
-        qf.setDefaultFeatureCoefficient(1.0);
+        qf.setDefaultFeatureCoefficient(defaultCoefficient);
         QFunction = qf;
         rewardCalculator = new QLearning(1, alpha, gamma, lambda, QFunction);
-        policy = new BoltzmannPolicy(QFunction, 1.0);
+        initialPolicy = new BoltzmannPolicy(QFunction, temperature);
+        policy = new MCTSPolicy(model, initialPolicy, qf, 2.0);
         rl = (QLearning) rewardCalculator;
     }
 
@@ -97,6 +103,7 @@ public class Agent extends utils.AbstractPlayer {
         newFeaturesInEpisode = 0;
         gst = new GameStatusTrackerWithHistory();
         gst.update(sso);
+        totalTime = 0;
     }
 
 
@@ -112,6 +119,8 @@ public class Agent extends utils.AbstractPlayer {
      */
     @Override
     public Types.ACTIONS act(SerializableStateObservation sso, ElapsedCpuTimer elapsedTimer) {
+
+        long start = System.currentTimeMillis();
         double new_score = sso.gameScore;
         double reward = calculateReward(sso);
 
@@ -124,15 +133,17 @@ public class Agent extends utils.AbstractPlayer {
         }
         gst.update(sso);
 
-        Types.ACTIONS action = policy.chooseAction(sso.getAvailableActions(), gst);
+        Policy policyToUse = policy;
+        if (game_plays_ < 5) policyToUse = initialPolicy;
+        Types.ACTIONS action = policyToUse.chooseAction(sso.getAvailableActions(), gst, 50);
         if (debug) {
+            double[] pdf = policyToUse.pdfOver(sso.getAvailableActions(), gst);
             logFile.log(String.format("Action %s taken with Avatar at %.0f/%.0f", action.toString(), sso.avatarPosition[0], sso.avatarPosition[1]));
             logFile.log("With underlying pdf:");
-            double[] pdf = policy.pdfOver(sso.getAvailableActions(), gst);
             for (int i = 0; i < pdf.length; i++) {
                 logFile.log(String.format("\t%s\t%.2f", sso.getAvailableActions().get(i), pdf[i]));
             }
-            logFile.log(model.toString());
+            // logFile.log(model.toString());
         }
 
         if (!firstGame && model != null) {
@@ -170,6 +181,9 @@ public class Agent extends utils.AbstractPlayer {
             }
         }
 
+        long end = System.currentTimeMillis();
+        totalTime += (end - start);
+
         Trainable thingToTrain = null;
         if (QFunction instanceof Trainable)
             thingToTrain = (Trainable) QFunction;
@@ -178,10 +192,12 @@ public class Agent extends utils.AbstractPlayer {
 
         int remainingTime = (int) elapsedTimer.remainingTimeMillis();
         if (thingToTrain != null) {
-            databank.teach(thingToTrain, remainingTime - 25, rl);
+            databank.teach(thingToTrain, 20, rl);
         } else {
             logFile.log("Nothing to train....");
         }
+        if (sso.gameTick > 50 + game_plays_ * 5)
+            action = Types.ACTIONS.ACTION_ESCAPE;
 
         last_score_ = new_score;
         last_action_ = action;
@@ -209,19 +225,19 @@ public class Agent extends utils.AbstractPlayer {
 
         // add final state to trajectory
         double reward = calculateReward(sso);
+        if (sso.gameTick == last_state_.gameTick) sso.gameTick++;
         SARTuple tuple = new SARTuple(gst, sso, last_action_, lastAvailableActions, new ArrayList(), reward);
         currentTrajectory.add(tuple);
         if (debug) {
             logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f and final score %.2f", tuple.ref, last_action_, reward, sso.gameScore));
-            logFile.log("End of game.");
+            logFile.log(String.format("End of game %s, with processing taking %.2f seconds for %d moves (%.0f ms per move)",
+                    game_plays_, totalTime / 1000.0, sso.gameTick, (sso.gameTick > 0) ? totalTime / sso.gameTick : 0.0));
         }
 
         gst.update(sso);
         if (firstGame) {
             firstGame = false;
         }
-        if (model != null)
-            model.updateModelStatistics(gst);
 
         Map<Types.ACTIONS, Integer> actionCounts = new HashMap();
         for (SARTuple exp : currentTrajectory) {
@@ -240,7 +256,13 @@ public class Agent extends utils.AbstractPlayer {
             msg.append(String.format("\tSprite Type: %s\t%.0f%%\n", spriteType, 100.0 * results.getValue1() / results.getValue0()));
         }
         logFile.log(msg.toString());
+        logFile.log("Coefficients after game:");
+        logFile.log(QFunction.toString());
         logFile.log("Total new features in episode: " + newFeaturesInEpisode + "\n");
+        if (model != null) {
+            model.updateModelStatistics(gst);
+            if (debug) logFile.log("New model after processing:\n" + model.toString() + "\n");
+        }
         logFile.flush();
 
         last_score_ = 0.0;
@@ -274,18 +296,19 @@ public class Agent extends utils.AbstractPlayer {
             State state = QFunction.calculateState(sso);
             for (Integer f : state.features.keySet()) {
                 if (!featureSeenCount.containsKey(f)) {
-                    explorationReward += rewardPerNewFeature;
+                    explorationReward += rewardPerNewFeature * game_plays_;
                     featureSeenCount.put(f, 1);
                     newFeaturesInEpisode++;
                 }
             }
         }
         double new_score = sso.gameScore;
+        new_score -= tickPenalty;
         if (sso.isGameOver) {
             if (sso.gameWinner == Types.WINNER.PLAYER_WINS) {
                 new_score += gameWinBonus;
             } else if (sso.gameWinner == Types.WINNER.PLAYER_LOSES) {
-                new_score -= gameWinBonus;
+                new_score -= gameLossMalus;
             }
         }
         return new_score - last_score_ + explorationReward;
