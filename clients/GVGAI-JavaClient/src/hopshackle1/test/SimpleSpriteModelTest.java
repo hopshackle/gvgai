@@ -80,7 +80,7 @@ public class SimpleSpriteModelTest {
         assertEquals(pdf.get(1).getValue1().y, 58.0 + 5.0 / Math.sqrt(2.0), 0.01);
 
         assertEquals(pdf.get(2).getValue0(), 1.0 / 8.0, 0.001); // half-left (7)
-        assertEquals(pdf.get(2).getValue1().x, 53.0, 0.001);
+        assertEquals(pdf.get(2).getValue1().x, 48.0 + Math.sqrt(18.0), 0.001);
         assertEquals(pdf.get(2).getValue1().y, 58.0, 0.001);
 
         Vector2d mapMove = model.nextMoveMAP(gst, 6, null);
@@ -106,7 +106,8 @@ public class SimpleSpriteModelTest {
         updateGST();
         model.updateModelStatistics(gst);
         // that should be S (4), SE (3), Stationary (-), E (2), SW (5)
-        // direction changes of 0, 7, Static, 7, 3
+        // direction [speed] changes of 0 [5.0], 7 [sqrt(18)], Static, 7 [5.0], 3 [sqrt(18)]
+        // 7 is soft-left. 3 is hard-right
 
         List<Pair<Double, Vector2d>> pdf = model.nextMovePdf(gst, 6, null);
         assertEquals(pdf.size(), 4);        // static, straightOn, hardRight, softLeft
@@ -120,11 +121,12 @@ public class SimpleSpriteModelTest {
 
         assertEquals(pdf.get(2).getValue0(), 0.1, 0.001); // hardRight (N)
         assertEquals(pdf.get(2).getValue1().x, 50.0, 0.001);
-        assertEquals(pdf.get(2).getValue1().y, 56.0, 0.001);
+        assertEquals(pdf.get(2).getValue1().y, 61 - Math.sqrt(18.0), 0.001);
 
-        assertEquals(pdf.get(3).getValue0(), 0.2, 0.001); // softLeft (S)
+        assertEquals(pdf.get(3).getValue0(), 0.2, 0.001); // softLeft (S) speed is mean of 5.0 and sqrt(18)
         assertEquals(pdf.get(3).getValue1().x, 50.0, 0.001);
-        assertEquals(pdf.get(3).getValue1().y, 66.0, 0.001);
+        double speed = (5.0 + Math.sqrt(18.0)) / 2.0;
+        assertEquals(pdf.get(3).getValue1().y, 61.0 + speed, 0.001);
 
         int stationary = 0, hardRight = 0, softLeft = 0, straightOn = 0;
         for (int i = 0; i < 1000; i++) {
@@ -132,8 +134,8 @@ public class SimpleSpriteModelTest {
             double x = m.x;
             double y = m.y;
             if (x < 50.1 && x > 49.9 && y < 61.1 && y > 60.9) stationary++;
-            if (x < 50.1 && x > 49.9 && y < 56.1 && y > 55.9) hardRight++; // new direction is N
-            if (x < 50.1 && x > 49.9 && y < 66.1 && y > 65.9) softLeft++; // new direction is S
+            if (x < 50.1 && x > 49.9  && y < 56.8 && y > 56.7) hardRight++; // new direction is N
+            if (x < 50.1 && x > 49.9 && y < 65.7 && y > 65.6) softLeft++; // new direction is S
             if (x < 46.6 && x > 46.4 && y < 64.6 && y > 64.4) straightOn++; // new direction is SW
         }
 
@@ -219,9 +221,12 @@ public class SimpleSpriteModelTest {
         sso.avatarPosition = new double[] {50, 80};
         gst.update(sso);
 
-        model = new SimpleSpriteModel(new int[]{5, 0, 0, 0, 0, 0, 0, 0},0, 4);
-        BehaviourModel turnRight = new SimpleSpriteModel(new int[]{0, 0, 500, 0, 0, 0, 0, 0}, 0, 6);
-        BehaviourModel stayStill = new SimpleSpriteModel(new int[]{0, 0, 0, 0, 0, 0, 0, 0}, 500, 2);
+        model = new SimpleSpriteModel(new int[]{5, 0, 0, 0, 0, 0, 0, 0},
+                new double[] {10.0, 0, 0, 0, 0, 0, 0, 0}, 0, 4, 100.0, 100.0);
+        BehaviourModel turnRight = new SimpleSpriteModel(new int[]{0, 0, 500, 0, 0, 0, 0, 0},
+                new double[] {0, 0, 10.0, 0, 0, 0, 0, 0},0, 6, 100.0, 100.0);
+        BehaviourModel stayStill = new SimpleSpriteModel(new int[]{0, 0, 0, 0, 0, 0, 0, 0},
+                new double[] {0, 0, 0, 0, 0, 0, 0, 0},500, 2, 100.0, 100.0);
 
         // model will always move forward
    //     model.updateModelStatistics(gst);
@@ -252,7 +257,7 @@ public class SimpleSpriteModelTest {
 
         gst.update(sso);
         gstCopy = new GameStatusTracker(gst);
-        gstCopy.rollForward(allModels, null); // should be no change
+        gstCopy.rollForward(allModels, null, false);
         sso = gstCopy.getCurrentSSO();
         assertEquals(sso.NPCPositions[0][0].position.x, 50.0, 0.001);
         assertEquals(sso.NPCPositions[0][0].position.y, 70.0, 0.001);

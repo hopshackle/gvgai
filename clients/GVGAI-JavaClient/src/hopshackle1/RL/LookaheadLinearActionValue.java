@@ -1,11 +1,11 @@
 package hopshackle1.RL;
 
 import hopshackle1.*;
-import hopshackle1.FeatureSets.FeatureSet;
-import hopshackle1.FeatureSets.FeatureSetLibrary;
-import hopshackle1.models.GameStatusTracker;
+import hopshackle1.FeatureSets.*;
+import hopshackle1.models.*;
 import serialization.*;
 import serialization.Types.*;
+import hopshackle1.Policies.*;
 
 import java.util.*;
 
@@ -19,6 +19,7 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     private LookaheadFunction lookahead;
     private EntityLog logFile = Agent.logFile;
     private double defaultFeatureCoefficient;
+    private PolicyGuide policyGuide;
 
     public LookaheadLinearActionValue(List<FeatureSet> features, double discountRate, boolean debug, LookaheadFunction lookahead) {
         this.debug = debug;
@@ -45,8 +46,13 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
         for (Integer f : coefficients.keySet()) {
             retValue.coefficients.put(f, coefficients.get(f));
         }
-
+        retValue.policyGuide = policyGuide;
         return retValue;
+    }
+
+    @Override
+    public void injectPolicyGuide(PolicyGuide newGuide) {
+        policyGuide = newGuide;
     }
 
     @Override
@@ -69,8 +75,11 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
         }
         State state = calculateState(sso);
         double retValue = value(state);
+        Vector2d avatarPosition = new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
+        double bonus = policyGuide == null ? 0.00 : policyGuide.locationBonus(avatarPosition);
+        retValue += bonus;
         if (debug) {
-            logFile.log(String.format("Total value for state at t=%d is %.2f", sso.gameTick, retValue));
+            logFile.log(String.format("Total value for state at t=%d is %.2f (including policy guide bonus of %.2f)", sso.gameTick, retValue, bonus));
             logFile.flush();
         }
         return retValue;
@@ -97,16 +106,19 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
         SerializableStateObservation forward = lookahead.rollForward(tuple.startGST, tuple.action);
         State state = calculateState(forward);
         double currentValuation = value(state);
-        double delta = tuple.target - currentValuation;
+        double endValuation = tuple.finalDiscount * value(tuple.rewardState);
+        double delta = endValuation + tuple.rewardToEnd - currentValuation;
+        double normaliser = Math.sqrt(state.features.keySet().size());
         for (Integer feature : state.features.keySet()) {
-            modifyCoeff(feature, delta, state.features.get(feature), rl);
+            modifyCoeff(feature, delta, state.features.get(feature), rl, normaliser);
         }
         return delta;
     }
 
-    private void modifyCoeff(int f, double delta, double fValue, ReinforcementLearningAlgorithm rl) {
+    private void modifyCoeff(int f, double delta, double fValue, ReinforcementLearningAlgorithm rl, double normaliser) {
         double currentValue = getCoeffFor(f);
-        double newValue = (1.0 - rl.regularisation()) * (currentValue + (rl.learningRate() * fValue * delta));
+        double alpha = rl.learningRate() / normaliser;
+        double newValue = (1.0 - rl.regularisation()) * (currentValue + (alpha * fValue * delta));
         setCoeffFor(f, newValue);
     }
 

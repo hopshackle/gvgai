@@ -9,5 +9,4 @@ public interface Policy {
     public Types.ACTIONS chooseAction(List<Types.ACTIONS> actions, GameStatusTracker gst, int timeBudget);
 
     public double[] pdfOver(List<Types.ACTIONS> actions, GameStatusTracker gst);
-
 }

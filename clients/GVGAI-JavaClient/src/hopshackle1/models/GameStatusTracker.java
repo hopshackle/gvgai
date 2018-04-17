@@ -56,13 +56,13 @@ public class GameStatusTracker {
 
         Vector2d lastAvatarPos = currentPositions.get(0);
         currentTick = sso.gameTick;
-            Vector2d newAvatarPos = new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
-            currentPositions.put(0, new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]));
-            Vector2d avatarVelocity = (lastAvatarPos == null) ? stationary : new Vector2d(newAvatarPos).subtract(lastAvatarPos);
-            currentVelocities.put(0, avatarVelocity);
-            if (!avatarVelocity.equals(stationary)) {
-                lastDirection.put(0, avatarVelocity);
-            }
+        Vector2d newAvatarPos = new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
+        currentPositions.put(0, new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]));
+        Vector2d avatarVelocity = (lastAvatarPos == null) ? stationary : new Vector2d(newAvatarPos).subtract(lastAvatarPos);
+        currentVelocities.put(0, avatarVelocity);
+        if (!avatarVelocity.equals(stationary)) {
+            lastDirection.put(0, avatarVelocity);
+        }
 
         Set<Integer> allCurrentIDs = new HashSet();
         if (sso.isAvatarAlive) allCurrentIDs.add(0);
@@ -110,7 +110,9 @@ public class GameStatusTracker {
         return currentVelocities.getOrDefault(id, null);
     }
 
-    public Vector2d getLastDirection(int id) { return lastDirection.getOrDefault(id, null); }
+    public Vector2d getLastDirection(int id) {
+        return lastDirection.getOrDefault(id, null);
+    }
 
     public boolean isExtant(int id) {
         return currentPositions.containsKey(id);
@@ -152,15 +154,20 @@ public class GameStatusTracker {
         return blockSize;
     }
 
-    public void rollForward(List<BehaviourModel> models, ACTIONS avatarMove) {
-    //   SerializableStateObservation forwardStep = SSOModifier.copy(currentSSO);
+    public void rollForward(List<BehaviourModel> models, ACTIONS avatarMove, boolean useMAP) {
+        //   SerializableStateObservation forwardStep = SSOModifier.copy(currentSSO);
         // don't think this is needed (I should have just cloned the SSO when cloning GST)
         currentSSO.gameTick++;
         currentSSO.avatarLastAction = avatarMove == null ? ACTIONS.ACTION_NIL : avatarMove;
         for (BehaviourModel model : models) {
             for (Integer id : currentPositions.keySet()) {
                 if (model.isValidFor(this, id)) {
-                    Vector2d move = model.nextMoveRandom(this, id, avatarMove);
+                    Vector2d move = null;
+                    if (useMAP) {
+                        move = model.nextMoveMAP(this, id, avatarMove);
+                    } else {
+                        move = model.nextMoveRandom(this, id, avatarMove);
+                    }
                     SSOModifier.moveSprite(id, getCategory(id), move.x, move.y, currentSSO);
                 }
             }
@@ -169,8 +176,12 @@ public class GameStatusTracker {
         update(currentSSO);
     }
 
+    public void rollForward(BehaviourModel model, ACTIONS avatarMove, boolean useMAP) {
+        rollForward(HopshackleUtilities.listFromInstance(model), avatarMove, useMAP);
+    }
+
     public void rollForward(BehaviourModel model, ACTIONS avatarMove) {
-        rollForward(HopshackleUtilities.listFromInstance(model), avatarMove);
+        rollForward(model, avatarMove, false);
     }
 
     public SerializableStateObservation getCurrentSSO() {

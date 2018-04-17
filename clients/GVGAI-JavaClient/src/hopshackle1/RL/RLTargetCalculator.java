@@ -12,12 +12,6 @@ public interface RLTargetCalculator {
     /*
     Will always need to be called once the full Trajectory is obtained
      */
-    public List<Double> processRewards(LinkedList<SARTuple> data);
+    public void crystalliseRewards(LinkedList<SARTuple> data);
 
-    public static void processRewardsWith(LinkedList<SARTuple> data, RLTargetCalculator calc) {
-        List<Double> values = calc.processRewards(data);
-        for (int i = 0; i < values.size(); i++) {
-            data.get(i).target = values.get(i);
-        }
-    }
 }

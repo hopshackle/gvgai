@@ -1,6 +1,8 @@
 package hopshackle1.RL;
 
 import hopshackle1.*;
+import serialization.Types;
+
 import java.util.*;
 
 
@@ -15,18 +17,15 @@ public class MonteCarloReward implements RLTargetCalculator, ReinforcementLearni
     }
 
     @Override
-    public List<Double> processRewards(LinkedList<SARTuple> data) {
+    public void crystalliseRewards(LinkedList<SARTuple> data) {
         Iterator<SARTuple> backwardsChain = data.descendingIterator();
-        List<Double> retValue = new ArrayList();
 
         double mcReward = 0.0;
         while (backwardsChain.hasNext()) {
             SARTuple previous = backwardsChain.next();
-            mcReward = mcReward * gamma + previous.reward;
-            retValue.add(mcReward);
+            previous.setTarget(null, Types.ACTIONS.ACTION_NIL, mcReward + previous.reward, 1.0);
+            mcReward = (mcReward + previous.reward) * gamma;
         }
-        Collections.reverse(retValue);
-        return retValue;
     }
 
     @Override

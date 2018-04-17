@@ -13,11 +13,13 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
     private SimpleAvatarModel avatarModel;
     private Map<Integer, Integer> IDToSpriteType = new HashMap();
     private int blockSize = -1;
+    private boolean useMAP = true;
+    private boolean allPassable = false;
 
     @Override
     public SerializableStateObservation rollForward(GameStatusTracker gst, Types.ACTIONS action) {
         GameStatusTracker gstCopy = new GameStatusTracker(gst);
-        gstCopy.rollForward(this, action);
+        gstCopy.rollForward(this, action, useMAP);
         SerializableStateObservation retValue = gstCopy.getCurrentSSO();
         return retValue;
     }
@@ -61,6 +63,10 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
         return model.nextMovePdf(gst, objID, avatarMove);
     }
 
+    public void setAllPassable(boolean flag) {
+        allPassable = flag;
+    }
+
     private void checkForNewSpriteTypes(GameStatusTracker gst) {
         if (avatarModel == null) {
             avatarModel = new SimpleAvatarModel(blockSize);
@@ -74,7 +80,7 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
         for (int id : allSpriteIDs) {
             int type = gst.getType(id);
             if (!spriteTypeToModel.containsKey(type)) {
-                BehaviourModel newModel = new SimpleSpriteModel(type);
+                BehaviourModel newModel = new SimpleSpriteModel(type, allPassable);
                 spriteTypeToModel.put(type, newModel);
             }
             if (!IDToSpriteType.containsKey(id))

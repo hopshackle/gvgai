@@ -2,9 +2,10 @@ package hopshackle1.RL;
 
 import java.util.*;
 
-import hopshackle1.models.GameStatusTracker;
+import hopshackle1.models.*;
 import serialization.*;
 import hopshackle1.*;
+import hopshackle1.Policies.*;
 
 public interface ActionValueFunctionApproximator {
 
@@ -21,5 +22,7 @@ public interface ActionValueFunctionApproximator {
  //   public ActionValue valueOfBestAction(SerializableStateObservation s, List<Types.ACTIONS> actions);
 
     public ActionValue valueOfBestAction(GameStatusTracker gst, List<Types.ACTIONS> actions);
+
+    public void injectPolicyGuide(PolicyGuide guide);
 }
 

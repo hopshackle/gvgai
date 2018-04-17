@@ -13,21 +13,18 @@ public class RewardCalculatorWithBaseline implements RLTargetCalculator {
     }
 
     @Override
-    public List<Double> processRewards(LinkedList<SARTuple> data) {
-        List<Double> temp = underlyingCalc.processRewards(data);
+    public void crystalliseRewards(LinkedList<SARTuple> data) {
+        underlyingCalc.crystalliseRewards(data);
 
         double meanReward = 0.0;
-        for (double r : temp) {
-            meanReward += r;
+        for (SARTuple tuple : data) {
+            meanReward += tuple.rewardToEnd;
         }
 
-        meanReward /= (double) temp.size();
+        meanReward /= (double) data.size();
 
-        List<Double> retValue = new ArrayList(temp.size());
-        for (int i = 0; i < temp.size(); i++) {
-            retValue.add(temp.get(i) - meanReward);
+        for (SARTuple tuple : data) {
+            tuple.rewardToEnd -= meanReward;
         }
-
-        return retValue;
     }
 }

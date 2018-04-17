@@ -19,7 +19,9 @@ public class SimpleSpriteModel implements BehaviourModel {
     // xChange and yChange are the arrays of x, y co-ord changes for each of the 8 movement directions
     // We encode a turn as the number of half right turns compared to last known direction
     private Map<Integer, Double> passable = new HashMap();
+    private boolean allPassable = false;
     public static final Vector2d stationary = new Vector2d(0, 0);
+    private double MAX_X = -1, MAX_Y = -1;
 
 
     public SimpleSpriteModel(int spriteType) {
@@ -28,15 +30,27 @@ public class SimpleSpriteModel implements BehaviourModel {
         this.spriteType = spriteType;
     }
 
-    public SimpleSpriteModel(int[] countData, int stationaryCount, int type) {
+    public SimpleSpriteModel(int spriteType, boolean allPassable) {
+        staticCount = 5;
+        totalCount = 5;
+        this.spriteType = spriteType;
+        this.allPassable = allPassable;
+    }
+
+    public SimpleSpriteModel(int[] countData, double[] speedData, int stationaryCount, int type, double maxX, double maxY) {
         if (countData.length != 8)
             throw new AssertionError("CountData must have length of 8 in SimpleSpriteModel");
         for (int i = 0; i < 8; i++) {
             counts[i] = countData[i];
+            speed[i] = speedData[i];
             totalCount += countData[i];
         }
+        totalCount += stationaryCount;
         staticCount = stationaryCount;
         spriteType = type;
+        MAX_X = maxX;
+        MAX_Y = maxY;
+        allPassable = true; // for testing
     }
 
     public void setRandom(Random newR) {
@@ -95,6 +109,8 @@ public class SimpleSpriteModel implements BehaviourModel {
                 Vector2d newHeading = new Vector2d(Math.cos(theta), Math.sin(theta));
                 p = counts[i] / totalCount;
                 Vector2d newPosition = newHeading.mul(speed[i]).add(currentPos);
+                if (offScreen(newPosition))
+                    continue;
                 if (!(blockOf(newPosition, gst.getBlockSize()) == blockOf(currentPos, gst.getBlockSize()))) {
                     // modify p to take account of passability changes
                     List<Pair<Integer, Vector2d>> collisions = SSOModifier.newCollisionsOf(objID, gst.getCategory(objID), gst.getCurrentSSO(), newPosition);
@@ -103,7 +119,7 @@ public class SimpleSpriteModel implements BehaviourModel {
                         if (passable.containsKey(type)) {
                             p *= passable.get(type) / (passable.get(type) + 10.0);
                         } else {
-                            p = 0.0;
+                            p *= (allPassable ? 1.0 : 0.0);
                         }
                     }
                 }
@@ -119,6 +135,10 @@ public class SimpleSpriteModel implements BehaviourModel {
         return retValue;
     }
 
+    private boolean offScreen(Vector2d pos) {
+        return (pos == null || pos.x < 0.0 || pos.y < 0.0 || pos.x > MAX_X || pos.y > MAX_Y);
+    }
+
     private int blockOf(Vector2d pos, int blockSize) {
         int x = (int) pos.x / blockSize;
         int y = (int) pos.y / blockSize;
@@ -128,6 +148,10 @@ public class SimpleSpriteModel implements BehaviourModel {
     @Override
     public void updateModelStatistics(GameStatusTrackerWithHistory gst) {
         // we need to run through every sprite of the relevant type, and determine how it moved
+        if (MAX_Y < 0.0) {
+            MAX_X = gst.getCurrentSSO().getWorldDimension()[0] * gst.getBlockSize();
+            MAX_Y = gst.getCurrentSSO().getWorldDimension()[1] * gst.getBlockSize();
+        }
 
         List<Integer> allSprites = gst.getAllSpritesOfType(spriteType);
         for (int id : allSprites) {
@@ -164,19 +188,20 @@ public class SimpleSpriteModel implements BehaviourModel {
 
                 if (v.equals(stationary)) {
                     staticCount++;
-                } else if (lastV.equals(stationary)) {
-                    // which indicates we are now moving from a cold start, which we treat as 'geradeaus'
-                    counts[0]++;
                 } else {
                     double oldHeading = HopshackleUtilities.directionOf(lastV).getValue0();
                     double newHeading = HopshackleUtilities.directionOf(v).getValue0();
                     int headingChange = (int) ((newHeading - oldHeading + 2.0 * Math.PI) / (Math.PI / 4.0) + 0.5) % 8;
+                    if (lastV.equals(stationary)) {
+                        // which indicates we are now moving from a cold start, which we treat as 'geradeaus'
+                        headingChange = 0;
+                    }
+                    lastV = v; // we update last known direction only if we moved
                     counts[headingChange]++;
                     double lastSpeed = v.mag();
                     speed[headingChange] = (speed[headingChange] * (counts[headingChange] - 1.0) + lastSpeed) / counts[headingChange];
                 }
-                if (!v.equals(stationary)) // we update last known direction only if we moved
-                    lastV = v;
+
                 lastTick = tick;
                 totalCount++;
             }

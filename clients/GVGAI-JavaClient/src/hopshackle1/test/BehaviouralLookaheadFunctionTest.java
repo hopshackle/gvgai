@@ -23,6 +23,7 @@ public class BehaviouralLookaheadFunctionTest {
     @Before
     public void setup() {
         bmf = new BehaviouralLookaheadFunction();
+        bmf.setAllPassable(true);
         SSOSequence = new SerializableStateObservation[10];
         SerializableStateObservation baseSSO = SSOModifier.constructEmptySSO();
         SSOModifier.addSprite(1, SSOModifier.TYPE_STATIC, 1, 60, 60, baseSSO);
@@ -129,6 +130,7 @@ public class BehaviouralLookaheadFunctionTest {
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
 
         bmf = new BehaviouralLookaheadFunction();
+        bmf.setAllPassable(true);
         gst.update(SSOSequence[3]);
         bmf.updateModelStatistics(gst);
 

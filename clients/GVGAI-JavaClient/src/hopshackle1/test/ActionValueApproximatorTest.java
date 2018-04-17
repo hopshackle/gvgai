@@ -122,7 +122,7 @@ public class ActionValueApproximatorTest {
         assertEquals(lookahead.value(sso), 0.5, 0.001);
 
         SARTuple trainingInstance = new SARTuple(gst, nextSSO, ACTIONS.ACTION_LEFT, allActions, allActions, 1.0);
-        trainingInstance.target = 1.0;
+        trainingInstance.setTarget(nextSSO, ACTIONS.ACTION_NIL, 1.0, 0.99);
 
         independent.learnValueFrom(trainingInstance, dummy);
         stateOnly.learnFrom(trainingInstance, dummy);
@@ -170,7 +170,7 @@ public class ActionValueApproximatorTest {
         assertEquals(independent.value(gst, ACTIONS.ACTION_ESCAPE), -1.0, 0.001);
 
         SARTuple trainingInstance = new SARTuple(gst, nextSSO, ACTIONS.ACTION_ESCAPE, allActions, allActions, 1.0);
-        trainingInstance.target = 1.0;
+        trainingInstance.setTarget(nextSSO, ACTIONS.ACTION_NIL, 1.0, 0.99);
 
         independent.learnFrom(trainingInstance, dummy);
 

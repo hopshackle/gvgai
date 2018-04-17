@@ -3,6 +3,7 @@ package hopshackle1;
 import hopshackle1.RL.*;
 
 import java.util.*;
+
 import org.javatuples.*;
 
 public class TupleDataBank {
@@ -12,13 +13,21 @@ public class TupleDataBank {
     private Random rnd = new Random();
     private boolean debug = false;
     private double PRIORITISATION_THRESHOLD;
+    private EntityLog logFile;
 
     public TupleDataBank(int limit, double threshold) {
+        if (debug) logFile = new EntityLog("TupleDataBank");
         tupleLimit = limit;
         PRIORITISATION_THRESHOLD = threshold;
     }
 
     public void addData(List<SARTuple> newData) {
+        if (debug) {
+            logFile.log("\nStarting new trajectory: ");
+            for (SARTuple tuple : newData) {
+                logFile.log(tuple.toString());
+            }
+        }
         int historicTuplesToUse = Math.max(tupleLimit - newData.size(), 0);
         if (data.size() > historicTuplesToUse) {
             data = HopshackleUtilities.cloneList(data.subList(0, historicTuplesToUse));
@@ -47,7 +56,7 @@ public class TupleDataBank {
                 data.remove((int) tupleData.getValue0());
                 tuplesFiltered++;
             }
-        } while (System.currentTimeMillis() < startTime + milliseconds);
+        } while (System.currentTimeMillis() < startTime + milliseconds && !data.isEmpty());
 
         if (debug) System.out.println(String.format("%d tuples of %d used in training in %d ms (%d removed)",
                 tuplesUsed, data.size(), System.currentTimeMillis() - startTime, tuplesFiltered));

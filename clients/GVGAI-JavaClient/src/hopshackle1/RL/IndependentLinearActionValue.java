@@ -2,6 +2,7 @@ package hopshackle1.RL;
 
 import hopshackle1.*;
 import hopshackle1.FeatureSets.FeatureSet;
+import hopshackle1.Policies.PolicyGuide;
 import hopshackle1.models.GameStatusTracker;
 import serialization.SerializableStateObservation;
 import serialization.Types.*;
@@ -52,6 +53,11 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
             coefficients.add(cloneActionTheta);
         }
         return retValue;
+    }
+
+    @Override
+    public void injectPolicyGuide(PolicyGuide guide) {
+        // not relevant for this implementation
     }
 
     public int getIndexFor(ACTIONS a) {
@@ -162,8 +168,8 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
         State state = calculateState(tuple.startGST.getCurrentSSO());
         int actionIndex = getIndexFor(tuple.action);
         double currentValuation = value(state, tuple.action);
-
-        double delta = tuple.target - currentValuation;
+        double endValuation = value(tuple.rewardState);
+        double delta = endValuation + tuple.rewardToEnd - currentValuation;
         modifyCoeff(state.features, actionIndex, delta, rl);
         return delta;
     }
@@ -172,7 +178,8 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
         State state = calculateState(tuple.startGST.getCurrentSSO());
         int actionIndex = 0;
         double currentValuation = value(state);
-        double delta = tuple.target - currentValuation;
+        double endValuation = value(tuple.rewardState);
+        double delta = endValuation + tuple.rewardToEnd - currentValuation;
         modifyCoeff(state.features, actionIndex, delta, rl);
         return delta;
     }

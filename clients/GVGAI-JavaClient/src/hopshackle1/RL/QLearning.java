@@ -12,7 +12,7 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
     private double alpha, lambda, gamma;
     private int nStepReward;
     private ActionValueFunctionApproximator QFunction;
-    private boolean debug = false;
+    private boolean debug = true;
     private EntityLog logFile;
 
     public QLearning(int n, double alpha, double gamma, double lambda, ActionValueFunctionApproximator fa) {
@@ -22,13 +22,16 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
         nStepReward = n;
         this.QFunction = fa;
         if (nStepReward < 1) nStepReward = 1;
+        if (debug) {
+            logFile = new EntityLog("QLearning");
+        }
     }
 
     @Override
-    public List<Double> processRewards(LinkedList<SARTuple> data) {
+    public void crystalliseRewards(LinkedList<SARTuple> data) {
         Iterator<SARTuple> backwardsChain = data.descendingIterator();
-        List<Double> retValue = new ArrayList();
-        double[] nStepValue = new double[nStepReward];
+        SerializableStateObservation[] nStepState = new SerializableStateObservation[nStepReward];
+        ACTIONS[] nStepBestAction = new ACTIONS[nStepReward];
         double[] nSteps = new double[nStepReward];
         int currentIndex = 0;
         double runningRewardSum = 0.0;
@@ -46,25 +49,23 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
             // we store current reward after using the old reward ('cos with n=1 these use the same slot)
             nSteps[currentIndex] = previous.reward;
 
-            // and add on the discounted value of the state N in the future
-            double target = runningRewardSum + gammaN * nStepValue[currentIndex];
-            retValue.add(target);
-
-            // then estimate the value of the next state
+            // then estimate the best action (and also record the state from which we take it)
             ActionValue bestAction = QFunction.valueOfBestAction(previous.nextGST, previous.availableEndActions);
-            nStepValue[currentIndex] = bestAction.value;
+            nStepState[currentIndex] = previous.nextGST == null ? null : previous.nextGST.getCurrentSSO();
+            nStepBestAction[currentIndex] = bestAction.action;
 
             currentIndex = (currentIndex + 1) % nStepReward;
 
+            // and add on the discounted value of the state N in the future
+            previous.setTarget(nStepState[currentIndex], nStepBestAction[currentIndex], runningRewardSum, gammaN);
+
             if (debug) {
                 double startValue = QFunction.value(previous.startGST, previous.action);
-                logFile.log(String.format("Ref: %d Action: %s StartValue: %.2f Reward %.2f NextAction: %s NextValue: %.2f Target: %.2f",
-                        previous.ref, previous.action, startValue, runningRewardSum, bestAction.action, bestAction.value, target));
+                logFile.log(String.format("Ref: %d Action: %s StartValue: %.2f Reward %.2f NextAction: %s NextValue: %.2f",
+                        previous.ref, previous.action, startValue, runningRewardSum, bestAction.action, bestAction.value));
                 logFile.flush();
             }
         }
-        Collections.reverse(retValue);
-        return retValue;
     }
 
     @Override

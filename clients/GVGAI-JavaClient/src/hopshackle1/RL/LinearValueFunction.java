@@ -2,6 +2,7 @@ package hopshackle1.RL;
 
 import hopshackle1.*;
 import hopshackle1.FeatureSets.FeatureSet;
+import hopshackle1.Policies.PolicyGuide;
 import hopshackle1.models.GameStatusTracker;
 import serialization.*;
 import serialization.Types.*;
@@ -13,6 +14,7 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
     private String winnowFeatures;
     private int featureCountForValueFunction;
     private boolean debug;
+    private PolicyGuide policyGuide;
     private EntityLog logFile = new EntityLog("LinearValueFunction");
 
     public LinearValueFunction(List<FeatureSet> features, String winnow, int featureCount, double discountRate, boolean debug) {
@@ -36,6 +38,11 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
     }
 
     @Override
+    public void injectPolicyGuide(PolicyGuide guide) {
+        this.policyGuide = guide;
+    }
+
+    @Override
     public State calculateState(SerializableStateObservation sso) {
         return underlying.calculateState(sso);
     }
@@ -47,7 +54,10 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
 
     @Override
     public double value(SerializableStateObservation sso) {
-        return underlying.value(sso);
+        double baseValue = underlying.value(sso);
+        Vector2d avatarPosition = new Vector2d(sso.avatarPosition[0], sso.avatarPosition[1]);
+        double bonus = (policyGuide == null) ? 0.0 : policyGuide.locationBonus(avatarPosition);
+        return baseValue + bonus;
     }
 
     @Override
