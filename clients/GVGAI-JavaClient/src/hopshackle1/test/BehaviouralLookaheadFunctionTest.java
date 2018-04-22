@@ -24,6 +24,7 @@ public class BehaviouralLookaheadFunctionTest {
     public void setup() {
         bmf = new BehaviouralLookaheadFunction();
         bmf.setAllPassable(true);
+        bmf.useMAP = false;
         SSOSequence = new SerializableStateObservation[10];
         SerializableStateObservation baseSSO = SSOModifier.constructEmptySSO();
         SSOModifier.addSprite(1, SSOModifier.TYPE_STATIC, 1, 60, 60, baseSSO);
@@ -71,15 +72,21 @@ public class BehaviouralLookaheadFunctionTest {
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
         // Avatar
         pdf = bmf.nextMovePdf(gst, 0, ACTIONS.ACTION_LEFT);
-        assertEquals(pdf.size(), 1);
+        assertEquals(pdf.size(), 2);
         assertEquals(pdf.get(0).getValue0(), 1.0, 0.0001);
         assertEquals(pdf.get(0).getValue1().x, 35.00, 0.0001);
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
+        assertEquals(pdf.get(1).getValue0(), 0.0, 0.0001);
+        assertEquals(pdf.get(1).getValue1().x, 45.00, 0.0001);
+        assertEquals(pdf.get(1).getValue1().y, 50.00, 0.0001);
         pdf = bmf.nextMovePdf(gst, 0, ACTIONS.ACTION_RIGHT);
-        assertEquals(pdf.size(), 1);
+        assertEquals(pdf.size(), 2);
         assertEquals(pdf.get(0).getValue0(), 1.0, 0.0001);
         assertEquals(pdf.get(0).getValue1().x, 55.00, 0.0001);
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
+        assertEquals(pdf.get(1).getValue0(), 0.0, 0.0001);
+        assertEquals(pdf.get(1).getValue1().x, 45.00, 0.0001);
+        assertEquals(pdf.get(1).getValue1().y, 50.00, 0.0001);
 
         bmf = new BehaviouralLookaheadFunction();
         gst.update(SSOSequence[1]);
@@ -95,12 +102,12 @@ public class BehaviouralLookaheadFunctionTest {
         assertEquals(pdf.get(1).getValue1().y, 50.00, 0.0001);
         // Avatar
         pdf = bmf.nextMovePdf(gst, 0, ACTIONS.ACTION_LEFT);
-        assertEquals(pdf.size(), 1);
+        assertEquals(pdf.size(), 2);
         assertEquals(pdf.get(0).getValue0(), 1.0, 0.0001);
         assertEquals(pdf.get(0).getValue1().x, 35.00, 0.0001);
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
         pdf = bmf.nextMovePdf(gst, 0, ACTIONS.ACTION_RIGHT);
-        assertEquals(pdf.size(), 1);
+        assertEquals(pdf.size(), 2);
         assertEquals(pdf.get(0).getValue0(), 1.0, 0.0001);
         assertEquals(pdf.get(0).getValue1().x, 55.00, 0.0001);
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
@@ -119,12 +126,12 @@ public class BehaviouralLookaheadFunctionTest {
         assertEquals(pdf.get(1).getValue1().y, 50.00, 0.0001);
         // Avatar
         pdf = bmf.nextMovePdf(gst, 0, ACTIONS.ACTION_LEFT);
-        assertEquals(pdf.size(), 1);
+        assertEquals(pdf.size(), 2);
         assertEquals(pdf.get(0).getValue0(), 1.0, 0.0001);
         assertEquals(pdf.get(0).getValue1().x, 25.00, 0.0001);
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
         pdf = bmf.nextMovePdf(gst, 0, ACTIONS.ACTION_RIGHT);
-        assertEquals(pdf.size(), 1);
+        assertEquals(pdf.size(), 2);
         assertEquals(pdf.get(0).getValue0(), 1.0, 0.0001);
         assertEquals(pdf.get(0).getValue1().x, 45.00, 0.0001);
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
@@ -144,12 +151,12 @@ public class BehaviouralLookaheadFunctionTest {
         assertEquals(pdf.get(1).getValue1().y, 50.00, 0.0001);
         // Avatar
         pdf = bmf.nextMovePdf(gst, 0, ACTIONS.ACTION_LEFT);
-        assertEquals(pdf.size(), 1);
+        assertEquals(pdf.size(), 2);
         assertEquals(pdf.get(0).getValue0(), 1.0, 0.0001);
         assertEquals(pdf.get(0).getValue1().x, 35.00, 0.0001);
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
         pdf = bmf.nextMovePdf(gst, 0, ACTIONS.ACTION_RIGHT);
-        assertEquals(pdf.size(), 1);
+        assertEquals(pdf.size(), 2);
         assertEquals(pdf.get(0).getValue0(), 1.0, 0.0001);
         assertEquals(pdf.get(0).getValue1().x, 55.00, 0.0001);
         assertEquals(pdf.get(0).getValue1().y, 50.00, 0.0001);
@@ -263,6 +270,6 @@ public class BehaviouralLookaheadFunctionTest {
                 alienStatic++;
         }
         assertEquals(alienMovedLeft + alienStatic, 100);
-        assertEquals(alienMovedLeft, 50, 15);
+        assertEquals(alienMovedLeft, 38, 10);
     }
 }

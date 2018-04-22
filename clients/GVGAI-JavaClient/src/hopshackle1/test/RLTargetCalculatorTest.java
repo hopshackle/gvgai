@@ -50,7 +50,7 @@ public class RLTargetCalculatorTest {
 
     @Test
     public void monteCarloRewardChainingTest() {
-        RLTargetCalculator monteCarloReward = new MonteCarloReward(0.01, 0.9, 0.00);
+        RLTargetCalculator monteCarloReward = new MonteCarloReward(0.01, 0.9, 0.00, false);
         monteCarloReward.crystalliseRewards(testData);
         for (int i = 0; i < testData.size(); i++) {
             assertEquals(testData.get(i).reward, rewardData[i], 0.0001);
@@ -61,7 +61,7 @@ public class RLTargetCalculatorTest {
     @Test
     public void oneStepRewardChainingTest() {
         ActionValueFunctionApproximator fa = new IndependentLinearActionValue(new ArrayList(), 0.9, false);
-        RLTargetCalculator oneStep = new QLearning(1, 0.01, 0.9, 0.00, fa);
+        RLTargetCalculator oneStep = new QLearning(1, 0.01, 0.9, 0.00, false, fa);
         oneStep.crystalliseRewards(testData);
         for (int i = 0; i < testData.size(); i++) {
             assertEquals(testData.get(i).reward, rewardData[i], 0.0001);
@@ -72,7 +72,7 @@ public class RLTargetCalculatorTest {
     @Test
     public void twoStepRewardChainingTest() {
         ActionValueFunctionApproximator fa = new IndependentLinearActionValue(new ArrayList(), 0.9, false);
-        RLTargetCalculator twoStep = new QLearning(2, 0.01, 0.9, 0.00, fa);
+        RLTargetCalculator twoStep = new QLearning(2, 0.01, 0.9, 0.00, false, fa);
         twoStep.crystalliseRewards(testData);
         for (int i = 0; i < testData.size(); i++) {
             assertEquals(testData.get(i).reward, rewardData[i], 0.0001);
@@ -83,7 +83,7 @@ public class RLTargetCalculatorTest {
     @Test
     public void fourStepRewardChainingTest() {
         ActionValueFunctionApproximator fa = new IndependentLinearActionValue(new ArrayList(), 0.9, false);
-        RLTargetCalculator fourStep = new QLearning(4, 0.01, 0.9, 0.00, fa);
+        RLTargetCalculator fourStep = new QLearning(4, 0.01, 0.9, 0.00, false, fa);
         fourStep.crystalliseRewards(testData);
         for (int i = 0; i < testData.size(); i++) {
             assertEquals(testData.get(i).reward, rewardData[i], 0.0001);
@@ -92,10 +92,8 @@ public class RLTargetCalculatorTest {
     }
 
     private double getQValueFrom(SARTuple data) {
-        if (data.rewardState == null) return 0.00;
-        SerializableStateObservation endState = SSOModifier.copy(data.rewardState);
-        GameStatusTracker gst = new GameStatusTracker();
-        gst.update(endState);
+        if (data.rewardGST == null || data.rewardGST.getCurrentSSO() == null) return 0.00;
+        GameStatusTracker gst = new GameStatusTracker(data.rewardGST);
         double gamma = data.finalDiscount;
         gst.rollForward(new ArrayList(), data.action, true);
         SerializableStateObservation nextState = gst.getCurrentSSO();
@@ -105,7 +103,7 @@ public class RLTargetCalculatorTest {
 
     @Test
     public void oneStepRewardChainingWithFuncApproxTest() {
-        RLTargetCalculator oneStep = new QLearning(1, 0.01, 0.9, 0.00, constantValuer);
+        RLTargetCalculator oneStep = new QLearning(1, 0.01, 0.9, 0.00, false, constantValuer);
         oneStep.crystalliseRewards(testData);
         for (int i = 0; i < testData.size(); i++) {
             assertEquals(testData.get(i).reward, rewardData[i], 0.0001);
@@ -116,7 +114,7 @@ public class RLTargetCalculatorTest {
 
     @Test
     public void twoStepRewardChainingWithFuncApproxTest() {
-        RLTargetCalculator twoStep = new QLearning(2, 0.01, 0.9, 0.00, constantValuer);
+        RLTargetCalculator twoStep = new QLearning(2, 0.01, 0.9, 0.00, false, constantValuer);
         twoStep.crystalliseRewards(testData);
         for (int i = 0; i < testData.size(); i++) {
             assertEquals(testData.get(i).reward, rewardData[i], 0.0001);
@@ -127,7 +125,7 @@ public class RLTargetCalculatorTest {
 
     @Test
     public void fourStepRewardChainingWithFuncApproxTest() {
-        RLTargetCalculator fourStep = new QLearning(4, 0.01, 0.9, 0.00, constantValuer);
+        RLTargetCalculator fourStep = new QLearning(4, 0.01, 0.9, 0.00, false, constantValuer);
         fourStep.crystalliseRewards(testData);
         for (int i = 0; i < testData.size(); i++) {
             assertEquals(testData.get(i).reward, rewardData[i], 0.0001);
@@ -140,7 +138,6 @@ public class RLTargetCalculatorTest {
 class ConstantActionValueFunctionApproximator implements ActionValueFunctionApproximator {
 
     ConstantActionValueFunctionApproximator(){
-
     }
 
     @Override
@@ -169,4 +166,9 @@ class ConstantActionValueFunctionApproximator implements ActionValueFunctionAppr
     }
     @Override
     public void injectPolicyGuide(PolicyGuide guide) {}
+
+    @Override
+    public double valueOfCoefficient(int feature) {
+        return 0;
+    }
 }

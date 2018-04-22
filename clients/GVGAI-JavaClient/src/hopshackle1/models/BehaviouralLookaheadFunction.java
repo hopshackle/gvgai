@@ -13,7 +13,7 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
     private SimpleAvatarModel avatarModel;
     private Map<Integer, Integer> IDToSpriteType = new HashMap();
     private int blockSize = -1;
-    private boolean useMAP = true;
+    public boolean useMAP = true;
     private boolean allPassable = false;
 
     @Override
@@ -69,7 +69,7 @@ public class BehaviouralLookaheadFunction implements LookaheadFunction, Behaviou
 
     private void checkForNewSpriteTypes(GameStatusTracker gst) {
         if (avatarModel == null) {
-            avatarModel = new SimpleAvatarModel(blockSize);
+            avatarModel = new SimpleAvatarModel(blockSize, gst.getCurrentSSO().worldDimension[0], gst.getCurrentSSO().worldDimension[1]);
             spriteTypeToModel.put(gst.getType(0), avatarModel);
             IDToSpriteType.put(0, gst.getType(0));
         }

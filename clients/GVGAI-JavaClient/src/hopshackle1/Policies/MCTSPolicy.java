@@ -18,7 +18,7 @@ public class MCTSPolicy implements Policy {
     private List<Types.ACTIONS> possibleActions;
     private int stateIDCounter = 0;
     private double C, temperature, defaultCoeff;
-    public boolean debug = true;
+    public boolean debug = false;
     public boolean robust = false;  // true will use visits to decide final action; false will use value
     public EntityLog logFile = hopshackle1.Agent.logFile;
     protected Random rnd = new Random(45);
@@ -41,7 +41,6 @@ public class MCTSPolicy implements Policy {
         tree = new HashMap();
         gameStates = new HashMap();
         int maxDepth = 0;
-        Types.ACTIONS lastAction = gst.getCurrentSSO().avatarLastAction;
         ActionValueFunctionApproximator baseFunction = evalFunction;
         if (evalFunction instanceof LookaheadLinearActionValue) {
             evalFunction = evalFunction.copy();
@@ -49,6 +48,7 @@ public class MCTSPolicy implements Policy {
         }
         do {
             int currentState = 0, lastState = 0;
+            Types.ACTIONS lastAction = gst.getCurrentSSO().avatarLastAction;
             gameStates.put(currentState, new GameStatusTracker(gst));
             LinkedList<Pair<Integer, Types.ACTIONS>> trajectory = new LinkedList();
             boolean atLeaf = false;
@@ -159,6 +159,8 @@ public class MCTSPolicy implements Policy {
             } else {
                 pdf[i] = value;
             }
+            if (visits == 0) // if not visited, then default value of 0.00 is incorrect
+                pdf[i] = Double.NEGATIVE_INFINITY;
             pdf[i] /= temperature;
         }
         pdf = HopshackleUtilities.expNormalise(pdf);
@@ -184,10 +186,11 @@ public class MCTSPolicy implements Policy {
         Types.ACTIONS retValue = Types.ACTIONS.ACTION_NIL;
         int maxVisits = 0;
         double maxScore = Double.NEGATIVE_INFINITY;
-        double[] pdf = new double[actions.size()];
         for (Types.ACTIONS a : actions) {
             Triplet<Integer, Integer, Double> data = tree.getOrDefault(new Pair(state, a), new Triplet(0, 0, 0.0));
             int visits = data.getValue1();
+            if (visits == 0)
+                continue;
             if (debug) logFile.log(String.format("%s has %d visits with score of %.2f", a, visits, data.getValue2()));
             if (robust && visits > maxVisits) {
                 retValue = a;

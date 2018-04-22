@@ -43,6 +43,11 @@ public class LinearValueFunction implements ActionValueFunctionApproximator, Tra
     }
 
     @Override
+    public double valueOfCoefficient(int feature) {
+        return underlying.valueOfCoefficient(feature);
+    }
+
+    @Override
     public State calculateState(SerializableStateObservation sso) {
         return underlying.calculateState(sso);
     }

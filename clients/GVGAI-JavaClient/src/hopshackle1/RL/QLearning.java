@@ -1,6 +1,7 @@
 package hopshackle1.RL;
 
 import hopshackle1.*;
+import hopshackle1.models.GameStatusTracker;
 import org.javatuples.*;
 import serialization.*;
 import serialization.Types.*;
@@ -13,12 +14,14 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
     private int nStepReward;
     private ActionValueFunctionApproximator QFunction;
     private boolean debug = true;
+    private boolean normalise;
     private EntityLog logFile;
 
-    public QLearning(int n, double alpha, double gamma, double lambda, ActionValueFunctionApproximator fa) {
+    public QLearning(int n, double alpha, double gamma, double lambda, boolean normaliseAlpha, ActionValueFunctionApproximator fa) {
         this.alpha = alpha;
         this.lambda = lambda;
         this.gamma = gamma;
+        normalise = normaliseAlpha;
         nStepReward = n;
         this.QFunction = fa;
         if (nStepReward < 1) nStepReward = 1;
@@ -30,7 +33,7 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
     @Override
     public void crystalliseRewards(LinkedList<SARTuple> data) {
         Iterator<SARTuple> backwardsChain = data.descendingIterator();
-        SerializableStateObservation[] nStepState = new SerializableStateObservation[nStepReward];
+        GameStatusTracker[] nStepState = new GameStatusTracker[nStepReward];
         ACTIONS[] nStepBestAction = new ACTIONS[nStepReward];
         double[] nSteps = new double[nStepReward];
         int currentIndex = 0;
@@ -51,10 +54,16 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
 
             // then estimate the best action (and also record the state from which we take it)
             ActionValue bestAction = QFunction.valueOfBestAction(previous.nextGST, previous.availableEndActions);
-            nStepState[currentIndex] = previous.nextGST == null ? null : previous.nextGST.getCurrentSSO();
+            nStepState[currentIndex] = (previous.nextGST == null) ? null : previous.nextGST;
             nStepBestAction[currentIndex] = bestAction.action;
 
             currentIndex = (currentIndex + 1) % nStepReward;
+
+            if (debug && previous.rewardGST != null) {
+                double startValue = QFunction.value(previous.startGST, previous.action);
+                logFile.log(String.format("Data overidden: Ref: %d Action: %s StartValue: %.2f Reward %.2f NextAction: %s NextValue: %.2f",
+                        previous.ref, previous.action, startValue, runningRewardSum, bestAction.action, bestAction.value));
+            }
 
             // and add on the discounted value of the state N in the future
             previous.setTarget(nStepState[currentIndex], nStepBestAction[currentIndex], runningRewardSum, gammaN);
@@ -76,5 +85,10 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
     @Override
     public double regularisation() {
         return lambda;
+    }
+
+    @Override
+    public boolean normaliseLearningRate() {
+        return normalise;
     }
 }

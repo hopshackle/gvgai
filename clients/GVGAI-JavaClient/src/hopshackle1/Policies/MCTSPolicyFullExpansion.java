@@ -23,10 +23,13 @@ public class MCTSPolicyFullExpansion extends MCTSPolicy {
         List<Types.ACTIONS> permittedActions = getPossibleActionsAfter(lastAction);
         Types.ACTIONS chosen = Types.ACTIONS.ACTION_NIL;
         double maxValue = Double.NEGATIVE_INFINITY;
+        GameStatusTracker baseGST = new GameStatusTracker(gameState(state));
+        baseGST.rollForwardSprites(model, true);
+
         for (Types.ACTIONS a : permittedActions) {
-            GameStatusTracker newGST = new GameStatusTracker(gameState(state));
-            newGST.rollForward(model, a);
             int newStateRef = nextStateCounter();
+            GameStatusTracker newGST = new GameStatusTracker(baseGST);
+            newGST.rollForwardAvatar(model, a, true);
             updateGameState(newStateRef, newGST);
             double value = evalFunction.value(newGST.getCurrentSSO());
             updateTree(new Pair(state, a), new Triplet(newStateRef, 1, value));

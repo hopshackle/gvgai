@@ -15,6 +15,11 @@ public class CollisionFeatures implements FeatureSet {
         for (Pair<Integer, Integer> collision : collisions) {
             int type1 = gst.getType(collision.getValue0());
             int type2 = gst.getType(collision.getValue1());
+            if (type1 > type2) {
+                int temp = type1;
+                type1 = type2;
+                type2 = temp;
+            }
             int featureIndex = type1 * 34949 + type2 * 24371 + 821;
             state.setFeature(featureIndex, 1.0);
             if (FeatureSetLibrary.debug) FeatureSetLibrary.registerFeature(featureIndex,  String.format("Collision between %s and %s", type1, type2));

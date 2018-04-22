@@ -60,6 +60,15 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
         // not relevant for this implementation
     }
 
+    @Override
+    public double valueOfCoefficient(int feature) {
+        double sum = 0.0;
+        for (Map<Integer, Double> coeffs : coefficients) {
+            sum += coeffs.getOrDefault(feature, 0.00);
+        }
+        return sum;
+    }
+
     public int getIndexFor(ACTIONS a) {
         int index = actions.indexOf(a);
         if (index == -1) {
@@ -117,6 +126,7 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
 
     @Override
     public double value(GameStatusTracker gst, ACTIONS action) {
+        if (gst == null) return 0.0;
         return value(gst.getCurrentSSO(), action);
     }
 
@@ -168,8 +178,8 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
         State state = calculateState(tuple.startGST.getCurrentSSO());
         int actionIndex = getIndexFor(tuple.action);
         double currentValuation = value(state, tuple.action);
-        double endValuation = value(tuple.rewardState);
-        double delta = endValuation + tuple.rewardToEnd - currentValuation;
+        double endValuation = tuple.finalDiscount * value(tuple.rewardGST, tuple.actionFromEnd);
+        double delta = tuple.rewardToEnd + endValuation - currentValuation;
         modifyCoeff(state.features, actionIndex, delta, rl);
         return delta;
     }
@@ -178,17 +188,22 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
         State state = calculateState(tuple.startGST.getCurrentSSO());
         int actionIndex = 0;
         double currentValuation = value(state);
-        double endValuation = value(tuple.rewardState);
-        double delta = endValuation + tuple.rewardToEnd - currentValuation;
+
+        double endValuation = tuple.finalDiscount * value(tuple.rewardGST, tuple.actionFromEnd);
+        double delta = tuple.rewardToEnd + endValuation - currentValuation;
         modifyCoeff(state.features, actionIndex, delta, rl);
         return delta;
     }
 
     private void modifyCoeff(Map<Integer, Double> features, int actionIndex, double delta, ReinforcementLearningAlgorithm rl) {
+        double alpha = rl.learningRate();
+        if (rl.normaliseLearningRate()) {
+            alpha /= Math.sqrt(features.keySet().size());
+        }
         for (Integer f : features.keySet()) {
             double fValue = features.get(f);
             double currentValue = getCoeffFor(actionIndex, f);
-            double newValue = (1.0 - rl.regularisation()) * (currentValue + (rl.learningRate() * fValue * delta));
+            double newValue = (1.0 - rl.regularisation()) * (currentValue + (alpha * fValue * delta));
             setCoeffFor(actionIndex, f, newValue);
         }
     }

@@ -11,6 +11,7 @@ public class SSOModifier {
     public static SerializableStateObservation constructEmptySSO() {
         SerializableStateObservation sso = new SerializableStateObservation();
         sso.blockSize = 10;
+        sso.isValidation = false;
         sso.avatarLastAction = Types.ACTIONS.ACTION_NIL;
         sso.worldDimension = new double[]{100.0, 100.0};
         sso.NPCPositions = new Observation[0][0];
@@ -59,7 +60,8 @@ public class SSOModifier {
 
         // now convert wipObsGrid into observationGrid[][][]
         Observation[] obsArray = new Observation[0];
-        Observation[][][] newObservationGrid = new Observation[wipObsGrid.length][wipObsGrid[0].length][maxRow];
+        Observation[][][] newObservationGrid = new Observation[wipObsGrid.length][wipObsGrid[0].length][maxRow + 1];
+        // we add one on to maxRow to enable avatar to be moved about outside of needing to rebuild the whole grid
         for (int i = 0; i < wipObsGrid.length; i++) {
             for (int j = 0; j < wipObsGrid[i].length; j++) {
                 newObservationGrid[i][j] = wipObsGrid[i][j].toArray(obsArray);
@@ -105,6 +107,7 @@ public class SSOModifier {
         retValue.isGameOver = sso.isGameOver;
         retValue.worldDimension = Arrays.copyOf(sso.worldDimension, sso.worldDimension.length);
         retValue.blockSize = sso.blockSize;
+        retValue.isValidation = sso.isValidation;
 
         retValue.noOfPlayers = sso.noOfPlayers;
         retValue.avatarSpeed = sso.avatarSpeed;
@@ -156,7 +159,6 @@ public class SSOModifier {
                 newRow[0] = obs;
                 obsArray = newObsArray;
             } else {
-                // we have a row, we just need to add new Observation to the end
                 Observation[] newRow = Arrays.copyOf(obsArray[rowForSpriteType], obsArray[rowForSpriteType].length + 1);
                 obsArray[rowForSpriteType] = newRow;
                 newRow[newRow.length - 1] = obs;
@@ -171,8 +173,11 @@ public class SSOModifier {
 
     public static void moveSprite(int id, int category, double x, double y, SerializableStateObservation sso) {
         if (category == TYPE_AVATAR) {
+            double oldX = sso.avatarPosition[0];
+            double oldY = sso.avatarPosition[1];
             sso.avatarPosition[0] = x;
             sso.avatarPosition[1] = y;
+            moveSpriteOnGrid(id, sso, oldX, oldY, x, y);
             return;
         } else {
             Observation[][] obsArray = getObsArrayForCategory(category, sso);
@@ -187,6 +192,69 @@ public class SSOModifier {
             }
         }
         throw new AssertionError(String.format("Sprite %d of category %d not found", id, category));
+    }
+
+    public static void moveSpriteOnGrid(int id, SerializableStateObservation sso, double oldX, double oldY, double newX, double newY) {
+        if (sso.observationGrid != null && sso.observationGrid.length != 0) {
+            int x = (int) (oldX / sso.blockSize);
+            int y = (int) (oldY / sso.blockSize);
+
+            Observation obsToRemove = null;
+            if (sso.observationGrid.length <= x || sso.observationGrid[x].length <= y) {
+                throw new AssertionError("Whoops");
+            }
+            for (Observation obs : sso.observationGrid[x][y]) {
+                if (obs.obsID == id) {
+                    // found it
+                    obsToRemove = obs;
+                }
+            }
+            // then we pull it out
+            for (int i = x - 1; i < x + 2; i++) {
+                for (int j = y - 1; j < y + 2; j++) {
+                    if (i < 0 || j < 0 || i >= sso.observationGrid.length || j >= sso.observationGrid[0].length)
+                        continue; // off-screen
+                    for (int k = 0; k < sso.observationGrid[i][j].length; k++) {
+                        if (sso.observationGrid[i][j][k] == obsToRemove) {
+                            Observation[] newRow = new Observation[sso.observationGrid[i][j].length - 1];
+                            int count = 0;
+                            for (int l = 0; l < sso.observationGrid[i][j].length; l++) {
+                                if (l != k) {
+                                    newRow[count] = sso.observationGrid[i][j][l];
+                                    count++;
+                                }
+                            }
+                            sso.observationGrid[i][j] = newRow;
+                        }
+                    }
+                }
+            }
+
+            x = (int) (newX / sso.blockSize);
+            boolean xPlus = (newX % sso.blockSize) > 0 && (x + 1 < sso.observationGrid.length);
+            y = (int) (newY / sso.blockSize);
+            boolean yPlus = (newY % sso.blockSize) > 0 && (y + 1 < sso.observationGrid[0].length);
+
+            // and put it back in the right place
+            if (x >= 0 && y >= 0 && x < sso.observationGrid.length && y < sso.observationGrid[0].length) {
+                addObservationToEndOfRow(x, y, obsToRemove, sso.observationGrid);
+                if (xPlus)
+                    addObservationToEndOfRow(x + 1, y, obsToRemove, sso.observationGrid);
+                if (yPlus)
+                    addObservationToEndOfRow(x, y + 1, obsToRemove, sso.observationGrid);
+                if (xPlus && yPlus)
+                    addObservationToEndOfRow(x + 1, y + 1, obsToRemove, sso.observationGrid);
+            }
+        }
+    }
+
+    private static void addObservationToEndOfRow(int x, int y, Observation obs, Observation[][][] observationGrid) {
+        Observation[] newRow = new Observation[observationGrid[x][y].length + 1];
+        for (int k = 0; k < observationGrid[x][y].length; k++) {
+            newRow[k] = observationGrid[x][y][k];
+        }
+        newRow[newRow.length - 1] = obs;
+        observationGrid[x][y] = newRow;
     }
 
     public static List<Pair<Integer, Integer>> getAllSprites(SerializableStateObservation sso, int[] categories) {

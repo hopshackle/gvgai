@@ -1,5 +1,6 @@
 package hopshackle1.Policies;
 
+import hopshackle1.models.GameStatusTracker;
 import serialization.*;
 
 import java.util.*;

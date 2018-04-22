@@ -9,11 +9,13 @@ import java.util.*;
 public class MonteCarloReward implements RLTargetCalculator, ReinforcementLearningAlgorithm {
 
     private double alpha, lambda, gamma;
+    private boolean normalise;
 
-    public MonteCarloReward(double alpha, double gamma, double lambda) {
+    public MonteCarloReward(double alpha, double gamma, double lambda, boolean normaliseAlpha) {
         this.alpha = alpha;
         this.lambda = lambda;
         this.gamma = gamma;
+        normalise = normaliseAlpha;
     }
 
     @Override
@@ -36,5 +38,10 @@ public class MonteCarloReward implements RLTargetCalculator, ReinforcementLearni
     @Override
     public double regularisation() {
         return lambda;
+    }
+
+    @Override
+    public boolean normaliseLearningRate() {
+        return normalise;
     }
 }

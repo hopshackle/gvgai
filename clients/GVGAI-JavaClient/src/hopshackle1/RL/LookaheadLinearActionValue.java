@@ -56,6 +56,11 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     }
 
     @Override
+    public double valueOfCoefficient(int feature) {
+        return coefficients.getOrDefault(feature, 0.00);
+    }
+
+    @Override
     public State calculateState(SerializableStateObservation sso) {
         State retValue = new State(sso, featureSets);
         return retValue;
@@ -71,7 +76,7 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
     public double value(SerializableStateObservation sso) {
         if (extremeDebug) {
             logFile.log("New SSO:");
-   //         logFile.log(sso.toString());
+            //         logFile.log(sso.toString());
         }
         State state = calculateState(sso);
         double retValue = value(state);
@@ -103,23 +108,45 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
 
     @Override
     public double learnFrom(SARTuple tuple, ReinforcementLearningAlgorithm rl) {
-        SerializableStateObservation forward = lookahead.rollForward(tuple.startGST, tuple.action);
-        State state = calculateState(forward);
-        double currentValuation = value(state);
-        double endValuation = tuple.finalDiscount * value(tuple.rewardState);
-        double delta = endValuation + tuple.rewardToEnd - currentValuation;
-        double normaliser = Math.sqrt(state.features.keySet().size());
-        for (Integer feature : state.features.keySet()) {
-            modifyCoeff(feature, delta, state.features.get(feature), rl, normaliser);
+        SerializableStateObservation startSSO = lookahead.rollForward(tuple.startGST, tuple.action);
+        State startState = calculateState(startSSO);
+
+        double endValuation = 0.00;
+        if (tuple.rewardGST != null) {
+            SerializableStateObservation finalSSO = lookahead.rollForward(tuple.rewardGST, tuple.actionFromEnd);
+            State finalState = calculateState(finalSSO);
+            endValuation = tuple.finalDiscount * value(finalState);
         }
+
+        double currentValuation = value(startState);
+        double delta = endValuation + tuple.rewardToEnd - currentValuation;
+
+        if (debug) {
+            logFile.log(String.format("Training Point Ref: %d\tS: %.2f\tA: %s\tR: %.2f\tE: %.2f\tDE: %.2f\tA': %s\tDelta: %.2f",
+                    tuple.ref, currentValuation, tuple.action, tuple.rewardToEnd, endValuation / tuple.finalDiscount, endValuation, tuple.actionFromEnd, delta));
+            //     logFile.log("Coefficients before training:");
+            //     logFile.log(this.toString());
+        }
+
+        modifyCoeff(startState.features, delta, rl);
+
         return delta;
     }
 
-    private void modifyCoeff(int f, double delta, double fValue, ReinforcementLearningAlgorithm rl, double normaliser) {
-        double currentValue = getCoeffFor(f);
-        double alpha = rl.learningRate() / normaliser;
-        double newValue = (1.0 - rl.regularisation()) * (currentValue + (alpha * fValue * delta));
-        setCoeffFor(f, newValue);
+    private void modifyCoeff(Map<Integer, Double> features, double delta, ReinforcementLearningAlgorithm rl) {
+        double alpha = rl.learningRate();
+        if (rl.normaliseLearningRate()) {
+            alpha /= Math.sqrt(features.keySet().size());
+        }
+        for (Integer f : features.keySet()) {
+            double fValue = features.get(f);
+            double currentValue = getCoeffFor(f);
+            double newValue = (1.0 - rl.regularisation()) * (currentValue + (alpha * fValue * delta));
+            if (debug) {
+                logFile.log(String.format("\t%.3f -> %.3f\t%d\t%s", currentValue, newValue, f, FeatureSetLibrary.getDescription(f)));
+            }
+            setCoeffFor(f, newValue);
+        }
     }
 
     public void refreshFrom(LookaheadLinearActionValue pcc) {

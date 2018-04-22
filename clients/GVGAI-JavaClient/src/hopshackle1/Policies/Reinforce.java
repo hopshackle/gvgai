@@ -51,7 +51,7 @@ public class Reinforce implements Policy, Trainable {
         }
         int indexToPDFForAction = tuple.availableStartActions.indexOf(tuple.action);
         double baseline = useValueFunctionAsBaseline ? coeffs.value(tuple.startGST.getCurrentSSO()) : 0.00;
-        double target = tuple.reward - baseline;
+        double target = tuple.rewardToEnd - baseline;       // Assumes we always have crystallised a Monte Carlo Reward
 
         if (fullDebug) {
             StringBuilder logMessage = new StringBuilder(String.format("R = %.2f\tV(S) = %.2f\tTupleRef: %d\tActions: ", tuple.reward, baseline, tuple.ref));

@@ -22,6 +22,7 @@ public class GameStatusTracker {
     private Map<Integer, Pair<Integer, Integer>> IDToCategoryAndType = new HashMap();
     private SerializableStateObservation currentSSO;
     private static final Vector2d stationary = new Vector2d(0, 0);
+    private boolean integrityHolds = true;
 
     public GameStatusTracker() {
 
@@ -36,13 +37,16 @@ public class GameStatusTracker {
         currentVelocities = HopshackleUtilities.cloneMap(gst.currentVelocities);
         lastDirection = HopshackleUtilities.cloneMap(gst.lastDirection);
         IDToCategoryAndType = HopshackleUtilities.cloneMap(gst.IDToCategoryAndType);
+        integrityHolds = gst.integrityHolds;
     }
 
     /*
     This assumes the provided SerializableStateObservation is the next one in sequence
      */
     public void update(SerializableStateObservation sso) {
-
+        if (!integrityHolds) {
+            throw new AssertionError("Should only be called when in integral state");
+        }
         if (blockSize == -1) {
             blockSize = sso.blockSize;
             worldDimension[0] = sso.worldDimension[0];
@@ -131,7 +135,7 @@ public class GameStatusTracker {
     public List<Integer> getAllSpritesOfType(int type) {
         List<Integer> retValue = new ArrayList();
         for (Integer id : IDToCategoryAndType.keySet()) {
-            if (IDToCategoryAndType.get(id).getValue1() == type)
+            if (IDToCategoryAndType.get(id).getValue1() == type && currentPositions.containsKey(id))
                 retValue.add(id);
         }
         return retValue;
@@ -140,7 +144,7 @@ public class GameStatusTracker {
     public List<Integer> getAllSpritesOfCategory(int category) {
         List<Integer> retValue = new ArrayList();
         for (Integer id : IDToCategoryAndType.keySet()) {
-            if (IDToCategoryAndType.get(id).getValue0() == category)
+            if (IDToCategoryAndType.get(id).getValue0() == category && currentPositions.containsKey(id))
                 retValue.add(id);
         }
         return retValue;
@@ -155,24 +159,59 @@ public class GameStatusTracker {
     }
 
     public void rollForward(List<BehaviourModel> models, ACTIONS avatarMove, boolean useMAP) {
-        //   SerializableStateObservation forwardStep = SSOModifier.copy(currentSSO);
-        // don't think this is needed (I should have just cloned the SSO when cloning GST)
+        rollForwardSprites(models, useMAP);
+        List<Integer> temp = this.getAllSpritesOfCategory(SSOModifier.TYPE_AVATAR);
+        int avatar = temp.get(0);
+        for (BehaviourModel avatarModel : models) {
+            if (avatarModel.isValidFor(this, avatar)) {
+                rollForwardAvatar(avatarModel, avatarMove, useMAP);
+                break;
+            }
+        }
+    }
+
+    public void rollForwardSprites(List<BehaviourModel> models, boolean useMAP) {
         currentSSO.gameTick++;
-        currentSSO.avatarLastAction = avatarMove == null ? ACTIONS.ACTION_NIL : avatarMove;
         for (BehaviourModel model : models) {
             for (Integer id : currentPositions.keySet()) {
+                if (getCategory(id) == SSOModifier.TYPE_AVATAR)
+                    continue;
                 if (model.isValidFor(this, id)) {
                     Vector2d move = null;
                     if (useMAP) {
-                        move = model.nextMoveMAP(this, id, avatarMove);
+                        move = model.nextMoveMAP(this, id, ACTIONS.ACTION_NIL);
                     } else {
-                        move = model.nextMoveRandom(this, id, avatarMove);
+                        move = model.nextMoveRandom(this, id, ACTIONS.ACTION_NIL);
                     }
                     SSOModifier.moveSprite(id, getCategory(id), move.x, move.y, currentSSO);
                 }
             }
         }
         SSOModifier.constructGrid(currentSSO);
+        integrityHolds = false;
+    }
+
+    public void rollForwardSprites(BehaviourModel model, boolean useMAP) {
+        rollForwardSprites(HopshackleUtilities.listFromInstance(model), useMAP);
+    }
+
+    public void rollForwardAvatar(BehaviourModel avatarModel, ACTIONS avatarMove, boolean useMAP) {
+        if (integrityHolds) {
+            throw new AssertionError("Should only be called when in non-integral state");
+        }
+        currentSSO.avatarLastAction = avatarMove == null ? ACTIONS.ACTION_NIL : avatarMove;
+        List<Integer> temp = this.getAllSpritesOfCategory(SSOModifier.TYPE_AVATAR);
+        if (temp.size() != 1)
+            throw new AssertionError("Only expecting one Avatar ID");
+        int avatar = temp.get(0);
+        Vector2d move = null;
+        if (useMAP) {
+            move = avatarModel.nextMoveMAP(this, avatar, avatarMove);
+        } else {
+            move = avatarModel.nextMoveRandom(this, avatar, avatarMove);
+        }
+        SSOModifier.moveSprite(avatar, SSOModifier.TYPE_AVATAR, move.x, move.y, currentSSO);
+        integrityHolds = true;
         update(currentSSO);
     }
 
@@ -184,8 +223,25 @@ public class GameStatusTracker {
         rollForward(model, avatarMove, false);
     }
 
+
     public SerializableStateObservation getCurrentSSO() {
         return currentSSO;
+    }
+
+    public Set<Integer> listOfTypes() {
+        Set<Integer> retValue = new HashSet();
+        for (int id : IDToCategoryAndType.keySet()) {
+            retValue.add(IDToCategoryAndType.get(id).getValue1());
+        }
+        return retValue;
+    }
+
+    public Set<Integer> listOfCategories() {
+        Set<Integer> retValue = new HashSet();
+        for (int id : IDToCategoryAndType.keySet()) {
+            retValue.add(IDToCategoryAndType.get(id).getValue0());
+        }
+        return retValue;
     }
 
 }

@@ -22,9 +22,12 @@ public class SimpleAvatarModel implements BehaviourModel {
     boolean debug = false;
     int count = 0;
     double DISTANCE_THRESHOLD = 1.0;
+    private double MAX_X, MAX_Y;
 
-    public SimpleAvatarModel(int block) {
+    public SimpleAvatarModel(int block, double maxX, double maxY) {
         blockSize = block;
+        MAX_X = maxX;
+        MAX_Y = maxY;
         setDefaultPrior();
     }
 
@@ -59,7 +62,7 @@ public class SimpleAvatarModel implements BehaviourModel {
 
             if (lastPosition != null && !offScreen(pos)) {
                 List<Pair<Double, Vector2d>> predictions = nextMovePdf(lastGST, 0, lastMove);
-                List<Pair<Double, Vector2d>> basePredictions = nextMovePdfWithoutPassability(lastGST, 0, lastMove);
+                List<Pair<Double, Vector2d>> basePredictions = nextMovePdfWithoutPassability(lastGST, lastMove);
 
                 for (int j = 0; j < predictions.size(); j++) {
                     if (predictions.get(j).getValue1().dist(pos) < DISTANCE_THRESHOLD) {
@@ -93,7 +96,8 @@ public class SimpleAvatarModel implements BehaviourModel {
                             if (debug)
                                 logFile.log(String.format("Would have moved and had %d collisions in that scenario", collisionIDs.size()));
                             for (Pair<Integer, Vector2d> c : collisionIDs) {
-                                if (debug) logFile.log(String.format("Object %d at %s", c.getValue0(), c.getValue1()));
+                                if (debug)
+                                    logFile.log(String.format("Object %d at %s", c.getValue0(), c.getValue1()));
                                 updatePassability(gst.getType(c.getValue0()), -basePred.getValue0());
                             }
                         }
@@ -122,7 +126,7 @@ public class SimpleAvatarModel implements BehaviourModel {
     }
 
     private boolean offScreen(Vector2d pos) {
-        return (pos == null || pos.x < 0.0 || pos.y < 0.0);
+        return (pos == null || pos.x < 0.0 || pos.y < 0.0 || pos.x >= MAX_X || pos.y >= MAX_Y);
     }
 
     private void updatePassability(int type, double change) {
@@ -165,7 +169,7 @@ public class SimpleAvatarModel implements BehaviourModel {
 
     @Override
     public List<Pair<Double, Vector2d>> nextMovePdf(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
-        List<Pair<Double, Vector2d>> startingPoint = nextMovePdfWithoutPassability(gst, objID, avatarMove);
+        List<Pair<Double, Vector2d>> startingPoint = nextMovePdfWithoutPassability(gst, avatarMove);
         List<Pair<Double, Vector2d>> retValue = new ArrayList();
         List<Double> updatedPdf = new ArrayList();
         Vector2d currentPosition = gst.getCurrentPosition(0);
@@ -180,6 +184,11 @@ public class SimpleAvatarModel implements BehaviourModel {
                 updatedPdf.add(base.getValue0());
             }
         }
+        double totalP = 0.00;
+        for (double p : updatedPdf) {
+            totalP += p;
+        }
+
         double[] newPdf = HopshackleUtilities.normalise(updatedPdf);
 
         for (int i = 0; i < newPdf.length; i++) {
@@ -189,7 +198,7 @@ public class SimpleAvatarModel implements BehaviourModel {
         return retValue;
     }
 
-    public List<Pair<Double, Vector2d>> nextMovePdfWithoutPassability(GameStatusTracker gst, int objID, ACTIONS avatarMove) {
+    public List<Pair<Double, Vector2d>> nextMovePdfWithoutPassability(GameStatusTracker gst, ACTIONS avatarMove) {
         double[] count = counts.get(avatarMove);
         List<Pair<Double, Vector2d>> retValue = new ArrayList();
         List<Vector2d> positions = new ArrayList();
@@ -201,8 +210,9 @@ public class SimpleAvatarModel implements BehaviourModel {
         }
         // then the possibility of each move
         for (int i = 0; i < 9; i++) {
-            if (count[i] > 0) {
-                double p = (double) count[i] / totalCount;
+            if (count[i] > 0 || i == 8) { // always include the option of not moving at all
+                double p = count[i] / totalCount;
+                if (i == 8 && p < 10e-8) p = 10e-8;
                 double new_x = currentPosition.x + blockSize * xChange[i];
                 double new_y = currentPosition.y + blockSize * yChange[i];
                 Vector2d newPosition = new Vector2d(new_x, new_y);
@@ -221,6 +231,9 @@ public class SimpleAvatarModel implements BehaviourModel {
 
     private double passableProbability(GameStatusTracker gst, Vector2d nextPosition) {
         double p = 1.00;
+        if (offScreen(nextPosition)) {
+            return 0.00;
+        }
         List<Pair<Integer, Vector2d>> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, gst.getCurrentSSO(), nextPosition);
         for (Pair<Integer, Vector2d> c : collisionIDs) {
             int type = gst.getType(c.getValue0());

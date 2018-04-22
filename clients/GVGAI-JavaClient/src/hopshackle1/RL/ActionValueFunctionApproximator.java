@@ -24,5 +24,7 @@ public interface ActionValueFunctionApproximator {
     public ActionValue valueOfBestAction(GameStatusTracker gst, List<Types.ACTIONS> actions);
 
     public void injectPolicyGuide(PolicyGuide guide);
+
+    public double valueOfCoefficient(int feature);
 }
 

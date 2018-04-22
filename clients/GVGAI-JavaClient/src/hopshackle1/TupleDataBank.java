@@ -44,22 +44,23 @@ public class TupleDataBank {
         return new Pair(roll, data.get(roll));
     }
 
-    public void teach(Trainable fa, int milliseconds, ReinforcementLearningAlgorithm rl) {
-        if (data.isEmpty()) return;
-        int tuplesUsed = 0, tuplesFiltered = 0;
+    public int teach(Trainable fa, int milliseconds, ReinforcementLearningAlgorithm rl) {
+        if (data.isEmpty()) return 0;
+        int tuplesUsed = 0, tuplesFiltered = 0, startingTuples = data.size();
         long startTime = System.currentTimeMillis();
         do {
             tuplesUsed++;
             Pair<Integer, SARTuple> tupleData = getTuple();
             double delta = fa.learnFrom(tupleData.getValue1(), rl);
-            if (Math.abs(delta) < PRIORITISATION_THRESHOLD) {
+            if (startingTuples > 100 && Math.abs(delta) < PRIORITISATION_THRESHOLD) {
                 data.remove((int) tupleData.getValue0());
                 tuplesFiltered++;
             }
         } while (System.currentTimeMillis() < startTime + milliseconds && !data.isEmpty());
 
-        if (debug) System.out.println(String.format("%d tuples of %d used in training in %d ms (%d removed)",
+        if (debug) logFile.log(String.format("%d tuples of %d used in training in %d ms (%d removed)",
                 tuplesUsed, data.size(), System.currentTimeMillis() - startTime, tuplesFiltered));
+        return tuplesUsed;
     }
 
 }

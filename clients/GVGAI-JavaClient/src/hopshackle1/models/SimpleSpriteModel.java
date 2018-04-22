@@ -136,7 +136,7 @@ public class SimpleSpriteModel implements BehaviourModel {
     }
 
     private boolean offScreen(Vector2d pos) {
-        return (pos == null || pos.x < 0.0 || pos.y < 0.0 || pos.x > MAX_X || pos.y > MAX_Y);
+        return (pos == null || pos.x < 0.0 || pos.y < 0.0 || pos.x >= MAX_X || pos.y >= MAX_Y);
     }
 
     private int blockOf(Vector2d pos, int blockSize) {
@@ -149,8 +149,8 @@ public class SimpleSpriteModel implements BehaviourModel {
     public void updateModelStatistics(GameStatusTrackerWithHistory gst) {
         // we need to run through every sprite of the relevant type, and determine how it moved
         if (MAX_Y < 0.0) {
-            MAX_X = gst.getCurrentSSO().getWorldDimension()[0] * gst.getBlockSize();
-            MAX_Y = gst.getCurrentSSO().getWorldDimension()[1] * gst.getBlockSize();
+            MAX_X = gst.getCurrentSSO().getWorldDimension()[0];
+            MAX_Y = gst.getCurrentSSO().getWorldDimension()[1];
         }
 
         List<Integer> allSprites = gst.getAllSpritesOfType(spriteType);

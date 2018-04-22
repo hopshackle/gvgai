@@ -25,21 +25,33 @@ public class GlobalPopulationFeatureSet implements FeatureSet {
                 int numberOfSprites = obs[i].length;
                 if (numberOfSprites > 0) {
                     base.setFeature(spriteType * 113, 1.0);
+                    if (FeatureSetLibrary.debug) {
+                        FeatureSetLibrary.registerFeature(spriteType * 113,  String.format("At least 1 sprite of type %d", spriteType));
+                    }
                 }
                 if (numberOfSprites > 1) {
                     base.setFeature(spriteType * 199, 1.0);
+                    if (FeatureSetLibrary.debug) {
+                        FeatureSetLibrary.registerFeature(spriteType * 199,  String.format("At least 2 sprites of type %d", spriteType));
+                    }
                 }
-                if (numberOfSprites > 2) {
+                if (numberOfSprites > 3) {
                     base.setFeature(spriteType * 941, 1.0);
+                    if (FeatureSetLibrary.debug) {
+                        FeatureSetLibrary.registerFeature(spriteType * 941,  String.format("At least 4 sprites of type %d", spriteType));
+                    }
                 }
-                if (numberOfSprites > 5) {
+                if (numberOfSprites > 7) {
                     base.setFeature(spriteType * 101323, 1.0);
+                    if (FeatureSetLibrary.debug) {
+                        FeatureSetLibrary.registerFeature(spriteType * 101323,  String.format("At least 8 sprites of type %d", spriteType));
+                    }
                 }
-                if (numberOfSprites > 9) {
+                if (numberOfSprites > 15) {
                     base.setFeature(spriteType * 2531, 1.0);
-                }
-                if (numberOfSprites > 19) {
-                    base.setFeature(spriteType * 2113, 1.0);
+                    if (FeatureSetLibrary.debug) {
+                        FeatureSetLibrary.registerFeature(spriteType * 2531,  String.format("At least 16 sprites of type %d", spriteType));
+                    }
                 }
             }
         }

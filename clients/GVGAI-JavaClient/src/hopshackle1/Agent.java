@@ -37,7 +37,7 @@ public class Agent extends utils.AbstractPlayer {
     private boolean detailedPredictionDebug = false;
     private int switchOnDebugAtGame = 200;
     private ActionValueFunctionApproximator QFunction;
-    private boolean firstGame = true;
+    private boolean firstGame = true, trackModelAccuracy = false;
     private BehaviourModel model;
     private GameStatusTrackerWithHistory gst;
     private Map<Integer, Pair<Integer, Double>> accuracyTracker;
@@ -50,13 +50,16 @@ public class Agent extends utils.AbstractPlayer {
     private TupleDataBank databank = new TupleDataBank(500, 0.5);
     private Map<Integer, List<Pair<Double, Vector2d>>> predictions = new HashMap();
     private Map<Integer, Integer> featureSeenCount = new HashMap();
-    private double rewardPerNewFeature = 10.0;
+    private double rewardPerNewFeature = 1.0;
     private double tickPenalty = 0.0;
-    private double defaultCoefficient = 1.0;
-    private double temperature = 1.0;
-    private int newFeaturesInEpisode;
+    private double defaultCoefficient = 0.0, totalReward = 0.0;
+    private double temperature = 0.3;
+    private int newFeaturesInEpisode, tuplesUsed, policyTarget;
     private long totalTime;
     private int tickOfLastReward, noRewardLimit = 50;
+    private CompositePolicyGuide policyGuide;
+    private boolean validationMode = false;
+    private Map<Integer, Pair<Integer, Double>> policyGuideScores = new HashMap();
 
     /**
      * Public method to be called at the start of the communication. No game has been initialized yet.
@@ -78,18 +81,17 @@ public class Agent extends utils.AbstractPlayer {
         //       featureSets.add(new AvatarMeshWidthThreeFeatureSet(1));
         //     featureSets.add(new GlobalPopulationFeatureSet());
         featureSets.add(new CollisionFeatures());
+        featureSets.add(new RareSpriteProximity());
 
         //QFunction = new IndependentLinearActionValue(featureSets, gamma, debug);
         model = new BehaviouralLookaheadFunction();
         LookaheadLinearActionValue qf = new LookaheadLinearActionValue(featureSets, gamma, debug, (LookaheadFunction) model);
         qf.setDefaultFeatureCoefficient(defaultCoefficient);
         QFunction = qf;
-        rewardCalculator = new QLearning(1, alpha, gamma, lambda, QFunction);
+        rewardCalculator = new QLearning(1, alpha, gamma, lambda, true, QFunction);
         //    rewardCalculator = new MonteCarloReward(alpha, gamma, lambda);
         initialPolicy = new BoltzmannPolicy(QFunction, temperature);
-        policy = initialPolicy;
         //     policy = new MCTSPolicy(model, qf, 3.0);
-        policy = new MCTSMaxPolicy(model, QFunction, 3.0, 1.0, temperature);
         rl = (QLearning) rewardCalculator;
         //   rl = new QLearning(1, alpha, gamma, lambda, QFunction);
     }
@@ -112,11 +114,24 @@ public class Agent extends utils.AbstractPlayer {
         if (debug) logFile.log("Initialising new trajectory for game " + game_plays_);
         accuracyTracker = new HashMap();
         newFeaturesInEpisode = 0;
+        tuplesUsed = 0;
         gst = new GameStatusTrackerWithHistory();
         gst.update(sso);
         totalTime = 0;
         tickOfLastReward = 0;
         frequencyCount = new HashMap();
+        policyGuide = new CompositePolicyGuide();
+        double MCDefault = 1.0;
+        if (validationMode) {
+            MCDefault = 0.0;
+        }
+        policy = new MCTSMaxPolicy(model, QFunction, 3.0, MCDefault, temperature);
+        policyGuide.clear();
+        policyGuide.add(new RetraceDisincentive(frequencyCount));
+        policyTarget = getNextPolicyTarget(gst);
+        if (policyTarget != -1)
+            policyGuide.add(new ExplorationGuide(policyTarget, gst));
+        totalReward = 0.00;
     }
 
 
@@ -149,7 +164,8 @@ public class Agent extends utils.AbstractPlayer {
 
         Policy policyToUse = policy;
         if (game_plays_ < 5) policyToUse = initialPolicy;
-        QFunction.injectPolicyGuide(new RetraceDisincentive(frequencyCount));
+        QFunction.injectPolicyGuide(policyGuide);
+
         Types.ACTIONS action = policyToUse.chooseAction(sso.getAvailableActions(), gst, 30);
         if (debug) {
             double[] pdf = policyToUse.pdfOver(sso.getAvailableActions(), gst);
@@ -162,7 +178,7 @@ public class Agent extends utils.AbstractPlayer {
         }
         QFunction.injectPolicyGuide(null);
 
-        if (!firstGame && model != null) {
+        if (trackModelAccuracy && !firstGame && model != null) {
             // score the result of our predictions
             if (!predictions.isEmpty()) {
                 Map<Integer, Pair<Integer, Double>> accuracyBySpriteType = SSOModifier.accuracyOf(predictions, sso);
@@ -208,7 +224,7 @@ public class Agent extends utils.AbstractPlayer {
 
         int remainingTime = (int) elapsedTimer.remainingTimeMillis();
         if (thingToTrain != null) {
-            databank.teach(thingToTrain, 20, rl);
+            tuplesUsed += databank.teach(thingToTrain, 20, rl);
         } else {
             logFile.log("Nothing to train....");
         }
@@ -239,11 +255,12 @@ public class Agent extends utils.AbstractPlayer {
     @Override
     public int result(SerializableStateObservation sso, ElapsedCpuTimer elapsedTimer) {
 
+        long start = elapsedTimer.elapsed();
         // add final state to trajectory
         updateFrequencyCount(sso.avatarPosition);
         double reward = calculateReward(sso);
         if (sso.gameTick == last_state_.gameTick) sso.gameTick++;
-        SARTuple tuple = new SARTuple(gst, sso, last_action_, lastAvailableActions, new ArrayList(), reward);
+        SARTuple tuple = new SARTuple(gst, null, last_action_, lastAvailableActions, new ArrayList(), reward);
         currentTrajectory.add(tuple);
         if (debug) {
             logFile.log(String.format("TupleRef: %d Action %s gives reward %.2f and final score %.2f", tuple.ref, last_action_, reward, sso.gameScore));
@@ -255,6 +272,7 @@ public class Agent extends utils.AbstractPlayer {
         if (firstGame) {
             firstGame = false;
         }
+        updatePolicyGuideStats();
 
         Map<Types.ACTIONS, Integer> actionCounts = new HashMap();
         for (SARTuple exp : currentTrajectory) {
@@ -267,22 +285,24 @@ public class Agent extends utils.AbstractPlayer {
                     100.0 * (double) actionCounts.get(action) / (double) currentTrajectory.size()));
         }
         logFile.log(msg.toString());
-        msg = new StringBuilder("Accuracy of Model over game:\n");
-        for (Integer spriteType : accuracyTracker.keySet()) {
-            Pair<Integer, Double> results = accuracyTracker.get(spriteType);
-            msg.append(String.format("\tSprite Type: %s\t%.0f%%\n", spriteType, 100.0 * results.getValue1() / results.getValue0()));
+        if (trackModelAccuracy) {
+            msg = new StringBuilder("Accuracy of Model over game:\n");
+            for (Integer spriteType : accuracyTracker.keySet()) {
+                Pair<Integer, Double> results = accuracyTracker.get(spriteType);
+                msg.append(String.format("\tSprite Type: %s\t%.0f%%\n", spriteType, 100.0 * results.getValue1() / results.getValue0()));
+            }
+            logFile.log(msg.toString());
         }
-        logFile.log(msg.toString());
 
         if (model != null) {
             model.updateModelStatistics(gst);
-            if (debug) logFile.log("New model after processing:\n" + model.toString() + "\n");
+            logFile.log("New model after processing:\n" + model.toString() + "\n");
         }
 
         logFile.log("Coefficients after game:");
         logFile.log(QFunction.toString());
         logFile.log("Total new features in episode: " + newFeaturesInEpisode);
-        logFile.log(String.format("Databank size %d, with %d new tuples to be added\n", databank.getAllData().size(), currentTrajectory.size()));
+        logFile.log(String.format("%d training events from databank of size %d, with %d new tuples to be added\n", tuplesUsed, databank.getAllData().size(), currentTrajectory.size()));
         logFile.flush();
 
         last_score_ = 0.0;
@@ -293,13 +313,25 @@ public class Agent extends utils.AbstractPlayer {
 
         game_selector_.addScore(current_level_, reward);
 
-        long start = elapsedTimer.elapsed();
+        long mid = elapsedTimer.elapsed();
 
-        processNewTrajectory();
+        long timeLeft = elapsedTimer.remainingTimeMillis();
+        if (timeLeft > 30 * currentTrajectory.size())
+            processNewTrajectory();
+        else
+            System.out.println("Skipping trajectory processing as short of time on clock " + elapsedTimer.remainingTimeMillis() + " : " + sso.isValidation);
+
+        if (timeLeft < 1000) {
+            // implies that the next game will be Validation
+            validationMode = true;
+        } else {
+            validationMode = false;
+        }
+
 
         long end = elapsedTimer.elapsed();
 
-        if (debug) logFile.log("Learning takes " + ((end - start) / 1000000) + "ms");
+        logFile.log(String.format("End of game processing takes %dms (%d for processNewTrajectory())", ((end - start) / 1000000), ((end - mid) / 1000000)));
 
         if (game_plays_ < 3) {
             current_level_++;
@@ -311,7 +343,7 @@ public class Agent extends utils.AbstractPlayer {
     }
 
     private void updateFrequencyCount(double[] avatarPosition) {
-        int key = (int)(avatarPosition[0] * 307 + avatarPosition[1]);
+        int key = (int) (avatarPosition[0] * 307 + avatarPosition[1]);
         int visits = frequencyCount.getOrDefault(key, 0);
         frequencyCount.put(key, visits + 1);
     }
@@ -319,20 +351,21 @@ public class Agent extends utils.AbstractPlayer {
 
     public double calculateReward(SerializableStateObservation sso) {
         double explorationReward = 0.0;
-        if (rewardPerNewFeature > 0.00) {
+        if (rewardPerNewFeature > 0.00 && !sso.isGameOver()) {
             int newFeatures = 0;
             State state = QFunction.calculateState(sso);
             for (Integer f : state.features.keySet()) {
                 if (!featureSeenCount.containsKey(f)) {
                     newFeatures++;
                     featureSeenCount.put(f, 1);
+                    if (debug)
+                        logFile.log(String.format("\tAdding feature %d : %d\t%s", newFeaturesInEpisode, f, FeatureSetLibrary.getDescription(f)));
                     newFeaturesInEpisode++;
                 }
             }
             explorationReward = Math.log(newFeatures + 1.0) * rewardPerNewFeature;
         }
         double new_score = sso.gameScore;
-        new_score -= tickPenalty;
         if (sso.isGameOver) {
             if (sso.gameWinner == Types.WINNER.PLAYER_WINS) {
                 new_score += gameWinBonus;
@@ -343,7 +376,9 @@ public class Agent extends utils.AbstractPlayer {
         if (new_score - last_score_ + explorationReward > 0.00) {
             tickOfLastReward = sso.gameTick;
         }
-        return new_score - last_score_ + explorationReward; // - repetitionPenalty;
+        double fullReward = new_score - last_score_ + explorationReward - tickPenalty * sso.gameTick;
+        totalReward = gamma * totalReward + fullReward;
+        return fullReward;
     }
 
 
@@ -351,5 +386,38 @@ public class Agent extends utils.AbstractPlayer {
         // execute a simple run of Policy Learning by gradient descent after updating rewards on trajectory
         rewardCalculator.crystalliseRewards(currentTrajectory);
         databank.addData(currentTrajectory);
+    }
+
+    private int getNextPolicyTarget(GameStatusTracker gst) {
+        Set<Integer> allTypes = gst.listOfTypes();
+        allTypes.add(-1);
+        double maxScore = Double.NEGATIVE_INFINITY;
+        int chosenType = -1;
+        double C = 5.0;
+        int avatarType = gst.getType(0);
+        for (int type : allTypes) {
+            if (type == avatarType) continue;
+            Pair<Integer, Double> data = policyGuideScores.getOrDefault(type, new Pair(0, 100.0));
+            int featureIndex = avatarType * 34949 + type * 24371 + 821;
+            if (type < avatarType) {
+                featureIndex = type * 34949 + avatarType * 24371 + 821;
+            }
+            double collisionValue = QFunction.valueOfCoefficient(featureIndex);
+            double score = data.getValue1() + collisionValue + C * Math.sqrt(Math.log(game_plays_ + 1) / data.getValue0() + 1);
+            logFile.log(String.format("UCB score for type %d is %.2f (%.2f base, %d visits, %.2f collision)", type, score, data.getValue1(), data.getValue0(), collisionValue));
+            if (score > maxScore) {
+                maxScore = score;
+                chosenType = type;
+            }
+        }
+        return chosenType;
+    }
+
+    private void updatePolicyGuideStats() {
+        logFile.log(String.format("PolicyGuide for type %d obtains reward %.2f", policyTarget, totalReward));
+        Pair<Integer, Double> data = policyGuideScores.getOrDefault(policyTarget, new Pair(0, 0.0));
+        int count = data.getValue0();
+        double value = data.getValue1();
+        policyGuideScores.put(policyTarget, new Pair(count + 1, (value * count + totalReward) / (count + 1)));
     }
 }
