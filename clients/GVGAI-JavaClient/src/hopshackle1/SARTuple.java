@@ -15,6 +15,7 @@ public class SARTuple {
     public ACTIONS action, actionFromEnd;
     public List<ACTIONS> availableStartActions, availableEndActions;
     public double reward, rewardToEnd, finalDiscount;
+    private int processedCount = 0;
     public final int ref;
 
     public SARTuple(GameStatusTracker gst, SerializableStateObservation nextSSO, ACTIONS actionChosen, List<ACTIONS> allActionsFromStart, List<ACTIONS> allActionsFromNext, double reward) {
@@ -40,6 +41,17 @@ public class SARTuple {
     @Override
     public String toString() {
         return String.format("Ref: %d\t%s\tR: %.2f\tT: %.2f", ref, action, reward, rewardToEnd);
+    }
+
+    public void incrementCount() {
+        processedCount++;
+    }
+
+    public int getProcessCount() {
+        return processedCount;
+    }
+    public void resetCount() {
+        processedCount = 0;
     }
 
 }

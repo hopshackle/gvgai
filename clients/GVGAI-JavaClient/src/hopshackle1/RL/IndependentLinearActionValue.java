@@ -181,6 +181,7 @@ public class IndependentLinearActionValue implements ActionValueFunctionApproxim
         double endValuation = tuple.finalDiscount * value(tuple.rewardGST, tuple.actionFromEnd);
         double delta = tuple.rewardToEnd + endValuation - currentValuation;
         modifyCoeff(state.features, actionIndex, delta, rl);
+        tuple.incrementCount();
         return delta;
     }
 

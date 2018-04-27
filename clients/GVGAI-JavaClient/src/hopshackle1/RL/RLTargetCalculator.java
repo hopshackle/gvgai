@@ -14,4 +14,6 @@ public interface RLTargetCalculator {
      */
     public void crystalliseRewards(LinkedList<SARTuple> data);
 
+    public int recrystalliseRewards(List<SARTuple> data);
+
 }

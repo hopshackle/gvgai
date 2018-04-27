@@ -27,4 +27,9 @@ public class RewardCalculatorWithBaseline implements RLTargetCalculator {
             tuple.rewardToEnd -= meanReward;
         }
     }
+
+    @Override
+    public int recrystalliseRewards(List<SARTuple> data) {
+        return underlyingCalc.recrystalliseRewards(data);
+    }
 }

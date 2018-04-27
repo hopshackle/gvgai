@@ -22,7 +22,11 @@ public class CollisionFeatures implements FeatureSet {
             }
             int featureIndex = type1 * 34949 + type2 * 24371 + 821;
             state.setFeature(featureIndex, 1.0);
-            if (FeatureSetLibrary.debug) FeatureSetLibrary.registerFeature(featureIndex,  String.format("Collision between %s and %s", type1, type2));
+            if (FeatureSetLibrary.debug) {
+                FeatureSetLibrary.registerFeature(featureIndex,  "Collision", String.format("Collision between %s and %s", type1, type2));
+            } else {
+                FeatureSetLibrary.registerFeature(featureIndex,  "Collision");
+            }
         }
     }
 }

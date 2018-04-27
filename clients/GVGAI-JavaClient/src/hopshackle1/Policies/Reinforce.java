@@ -96,6 +96,7 @@ public class Reinforce implements Policy, Trainable {
             }
         }
         if (fullDebug) logFile.flush();
+        tuple.incrementCount();
         return target;
     }
 

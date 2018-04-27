@@ -60,6 +60,9 @@ public class Agent extends utils.AbstractPlayer {
     private CompositePolicyGuide policyGuide;
     private boolean validationMode = false;
     private Map<Integer, Pair<Integer, Double>> policyGuideScores = new HashMap();
+    private int[] recrystallisationPoints = new int[]{30, 60, 120, 180, 240, 32767};
+    private int recrystallisationIndex = 0;
+    private long learningStartTime;
 
     /**
      * Public method to be called at the start of the communication. No game has been initialized yet.
@@ -75,6 +78,8 @@ public class Agent extends utils.AbstractPlayer {
         this.game_selector_ = new GameSelector();
         this.current_level_ = 0;
         this.game_plays_ = 0;
+        recrystallisationIndex = 0;
+        learningStartTime = System.currentTimeMillis();
         logFile = new EntityLog("Hopshackle1");
 
         featureSets.add(new AvatarMeshWidthOneFeatureSet(2));
@@ -89,6 +94,7 @@ public class Agent extends utils.AbstractPlayer {
         qf.setDefaultFeatureCoefficient(defaultCoefficient);
         QFunction = qf;
         rewardCalculator = new QLearning(1, alpha, gamma, lambda, true, QFunction);
+        ((QLearning) rewardCalculator).recrystallisationThreshold = 10;
         //    rewardCalculator = new MonteCarloReward(alpha, gamma, lambda);
         initialPolicy = new BoltzmannPolicy(QFunction, temperature);
         //     policy = new MCTSPolicy(model, qf, 3.0);
@@ -165,7 +171,6 @@ public class Agent extends utils.AbstractPlayer {
         Policy policyToUse = policy;
         if (game_plays_ < 5) policyToUse = initialPolicy;
         QFunction.injectPolicyGuide(policyGuide);
-
         Types.ACTIONS action = policyToUse.chooseAction(sso.getAvailableActions(), gst, 30);
         if (debug) {
             double[] pdf = policyToUse.pdfOver(sso.getAvailableActions(), gst);
@@ -274,36 +279,7 @@ public class Agent extends utils.AbstractPlayer {
         }
         updatePolicyGuideStats();
 
-        Map<Types.ACTIONS, Integer> actionCounts = new HashMap();
-        for (SARTuple exp : currentTrajectory) {
-            int oldCount = actionCounts.getOrDefault(exp.action, 0);
-            actionCounts.put(exp.action, oldCount + 1);
-        }
-        StringBuilder msg = new StringBuilder("Total action counts in game:\n");
-        for (Types.ACTIONS action : actionCounts.keySet()) {
-            msg.append(String.format("\t%s\t%d\t(%.0f%%)\n", action.toString(), actionCounts.get(action),
-                    100.0 * (double) actionCounts.get(action) / (double) currentTrajectory.size()));
-        }
-        logFile.log(msg.toString());
-        if (trackModelAccuracy) {
-            msg = new StringBuilder("Accuracy of Model over game:\n");
-            for (Integer spriteType : accuracyTracker.keySet()) {
-                Pair<Integer, Double> results = accuracyTracker.get(spriteType);
-                msg.append(String.format("\tSprite Type: %s\t%.0f%%\n", spriteType, 100.0 * results.getValue1() / results.getValue0()));
-            }
-            logFile.log(msg.toString());
-        }
-
-        if (model != null) {
-            model.updateModelStatistics(gst);
-            logFile.log("New model after processing:\n" + model.toString() + "\n");
-        }
-
-        logFile.log("Coefficients after game:");
-        logFile.log(QFunction.toString());
-        logFile.log("Total new features in episode: " + newFeaturesInEpisode);
-        logFile.log(String.format("%d training events from databank of size %d, with %d new tuples to be added\n", tuplesUsed, databank.getAllData().size(), currentTrajectory.size()));
-        logFile.flush();
+        logInterestingStatistics();
 
         last_score_ = 0.0;
         last_state_ = null;
@@ -316,9 +292,9 @@ public class Agent extends utils.AbstractPlayer {
         long mid = elapsedTimer.elapsed();
 
         long timeLeft = elapsedTimer.remainingTimeMillis();
-        if (timeLeft > 30 * currentTrajectory.size())
+        if (timeLeft > 20 * currentTrajectory.size()) {
             processNewTrajectory();
-        else
+        } else
             System.out.println("Skipping trajectory processing as short of time on clock " + elapsedTimer.remainingTimeMillis() + " : " + sso.isValidation);
 
         if (timeLeft < 1000) {
@@ -350,20 +326,28 @@ public class Agent extends utils.AbstractPlayer {
 
 
     public double calculateReward(SerializableStateObservation sso) {
+        // the idea here is to apply the stated exploration bonus per new feature at the mid-point (2.5 minutes)
+        // for a featureSet with 100 of that type. This is scaled linearly in time (earlier features count for much less),
+        // and as the inverse square root of the size of the feature set
+        double proportionOfTimeSpent = (System.currentTimeMillis() - learningStartTime) / (1000.0 * 60.0 * 2.5);
+   //     proportionOfTimeSpent *= proportionOfTimeSpent;
         double explorationReward = 0.0;
         if (rewardPerNewFeature > 0.00 && !sso.isGameOver()) {
-            int newFeatures = 0;
+            double newFeatures = 0.0;
             State state = QFunction.calculateState(sso);
             for (Integer f : state.features.keySet()) {
                 if (!featureSeenCount.containsKey(f)) {
-                    newFeatures++;
                     featureSeenCount.put(f, 1);
-                    if (debug)
-                        logFile.log(String.format("\tAdding feature %d : %d\t%s", newFeaturesInEpisode, f, FeatureSetLibrary.getDescription(f)));
+                    String featureSet = FeatureSetLibrary.getFeatureSet(f);
+                    int featureSetCount = FeatureSetLibrary.getNumberOf(featureSet);
+                    newFeatures += 1.0 / Math.sqrt(featureSetCount / 100.0) * proportionOfTimeSpent;
+                    if (debug) {
+                        logFile.log(String.format("\tAdding feature %d : %d\t%s\t(%d in FeatureSet, cumulative exploration value is %.3f at t^2 = %.3f)", newFeaturesInEpisode, f, FeatureSetLibrary.getDescription(f), featureSetCount, newFeatures, proportionOfTimeSpent));
+                    }
                     newFeaturesInEpisode++;
                 }
             }
-            explorationReward = Math.log(newFeatures + 1.0) * rewardPerNewFeature;
+            explorationReward = newFeatures * rewardPerNewFeature;
         }
         double new_score = sso.gameScore;
         if (sso.isGameOver) {
@@ -383,13 +367,17 @@ public class Agent extends utils.AbstractPlayer {
 
 
     public void processNewTrajectory() {
-        // execute a simple run of Policy Learning by gradient descent after updating rewards on trajectory
-        rewardCalculator.crystalliseRewards(currentTrajectory);
+    //    if ((System.currentTimeMillis() - learningStartTime) / 1000 > recrystallisationPoints[recrystallisationIndex]) {
+            recrystallisationIndex++;
+            int recordsChanged = rewardCalculator.recrystalliseRewards(databank.getAllData());
+            logFile.log(String.format("Recrystallising historic data : %d of %d records changed", recordsChanged, databank.getAllData().size()));
+   //     }
         databank.addData(currentTrajectory);
+        rewardCalculator.crystalliseRewards(currentTrajectory);
     }
 
     private int getNextPolicyTarget(GameStatusTracker gst) {
-        Set<Integer> allTypes = gst.listOfTypes();
+        Set<Integer> allTypes = gst.allTypesNotWithin(gst.getBlockSize() * 3.0);
         allTypes.add(-1);
         double maxScore = Double.NEGATIVE_INFINITY;
         int chosenType = -1;
@@ -403,7 +391,7 @@ public class Agent extends utils.AbstractPlayer {
                 featureIndex = type * 34949 + avatarType * 24371 + 821;
             }
             double collisionValue = QFunction.valueOfCoefficient(featureIndex);
-            double score = data.getValue1() + collisionValue + C * Math.sqrt(Math.log(game_plays_ + 1) / data.getValue0() + 1);
+            double score = data.getValue1() + 10.0 * collisionValue + C * Math.sqrt(Math.log(game_plays_ + 1) / data.getValue0() + 1);
             logFile.log(String.format("UCB score for type %d is %.2f (%.2f base, %d visits, %.2f collision)", type, score, data.getValue1(), data.getValue0(), collisionValue));
             if (score > maxScore) {
                 maxScore = score;
@@ -419,5 +407,40 @@ public class Agent extends utils.AbstractPlayer {
         int count = data.getValue0();
         double value = data.getValue1();
         policyGuideScores.put(policyTarget, new Pair(count + 1, (value * count + totalReward) / (count + 1)));
+    }
+
+    private void logInterestingStatistics() {
+
+        Map<Types.ACTIONS, Integer> actionCounts = new HashMap();
+        for (SARTuple exp : currentTrajectory) {
+            int oldCount = actionCounts.getOrDefault(exp.action, 0);
+            actionCounts.put(exp.action, oldCount + 1);
+        }
+        StringBuilder msg = new StringBuilder("Total action counts in game:\n");
+        for (Types.ACTIONS action : actionCounts.keySet()) {
+            msg.append(String.format("\t%s\t%d\t(%.0f%%)\n", action.toString(), actionCounts.get(action),
+                    100.0 * (double) actionCounts.get(action) / (double) currentTrajectory.size()));
+        }
+        logFile.log(msg.toString());
+        if (trackModelAccuracy) {
+            msg = new StringBuilder("Accuracy of Model over game:\n");
+            for (Integer spriteType : accuracyTracker.keySet()) {
+                Pair<Integer, Double> results = accuracyTracker.get(spriteType);
+                msg.append(String.format("\tSprite Type: %s\t%.0f%%\n", spriteType, 100.0 * results.getValue1() / results.getValue0()));
+            }
+            logFile.log(msg.toString());
+        }
+
+        if (model != null) {
+            model.updateModelStatistics(gst);
+            logFile.log("New model after processing:\n" + model.toString() + "\n");
+        }
+
+        logFile.log("Coefficients after game:");
+        logFile.log(QFunction.toString());
+        logFile.log("Total new features in episode: " + newFeaturesInEpisode);
+        logFile.log(String.format("%d training events from databank of size %d, with %d new tuples to be added\n", tuplesUsed, databank.getAllData().size(), currentTrajectory.size()));
+
+        logFile.flush();
     }
 }

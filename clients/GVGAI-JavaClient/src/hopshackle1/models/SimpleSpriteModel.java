@@ -113,7 +113,7 @@ public class SimpleSpriteModel implements BehaviourModel {
                     continue;
                 if (!(blockOf(newPosition, gst.getBlockSize()) == blockOf(currentPos, gst.getBlockSize()))) {
                     // modify p to take account of passability changes
-                    List<Pair<Integer, Vector2d>> collisions = SSOModifier.newCollisionsOf(objID, gst.getCategory(objID), gst.getCurrentSSO(), newPosition);
+                    List<Pair<Integer, Vector2d>> collisions = SSOModifier.newCollisionsOf(objID, gst.getCategory(objID), gst.getCurrentSSO(), currentPos, newPosition);
                     for (Pair<Integer, Vector2d> c : collisions) {
                         int type = gst.getType(c.getValue0());
                         if (passable.containsKey(type)) {
@@ -168,7 +168,7 @@ public class SimpleSpriteModel implements BehaviourModel {
                     lastPos = gst.getGST(lastTick);
                     if (!(blockOf(lastPos.getCurrentPosition(id), gst.getBlockSize()) == blockOf(newPos.getCurrentPosition(id), gst.getBlockSize()))) {
                         // new collisions of the sprite if it moved (based on the sso *before* move to allow for annihilations
-                        List<Pair<Integer, Vector2d>> newCollisions = SSOModifier.newCollisionsOf(id, gst.getCategory(id), lastPos.getCurrentSSO(), newPos.getCurrentPosition(id));
+                        List<Pair<Integer, Vector2d>> newCollisions = SSOModifier.newCollisionsOf(id, gst.getCategory(id), lastPos.getCurrentSSO(), lastPos.getCurrentPosition(id), newPos.getCurrentPosition(id));
 
                         Set<Integer> typesOfCollision = new HashSet();
                         for (Pair<Integer, Vector2d> collision : newCollisions) {

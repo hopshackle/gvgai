@@ -58,41 +58,53 @@ public class SimpleAvatarModel implements BehaviourModel {
             if (debug) {
                 logFile.log(String.format("Tick: %d\t%s\tPos: %s\tV: %s", tick, lastMove, pos, v));
             }
-            double pPassable = 1.0, pBaseMove = 1.00, pMove = 1.00;
 
             if (lastPosition != null && !offScreen(pos)) {
                 List<Pair<Double, Vector2d>> predictions = nextMovePdf(lastGST, 0, lastMove);
                 List<Pair<Double, Vector2d>> basePredictions = nextMovePdfWithoutPassability(lastGST, lastMove);
+                double[] pTriedToMove = new double[predictions.size()];
+                double pBaseMove = 1.00;
+                double pPassable = 0.00, pStationary = 0.00;
 
                 for (int j = 0; j < predictions.size(); j++) {
-                    if (predictions.get(j).getValue1().dist(pos) < DISTANCE_THRESHOLD) {
-                        pMove = predictions.get(j).getValue0();
-                        pBaseMove = basePredictions.get(j).getValue0();
-                        pPassable = pMove / pBaseMove;
+                    Vector2d destination = predictions.get(j).getValue1();
+                    pBaseMove = basePredictions.get(j).getValue0();
+                    if (destination.dist(pos) > DISTANCE_THRESHOLD) {
+                        double p = passableProbability(lastGST, destination);
+                        pTriedToMove[j] = (1.0 - p) * pBaseMove;
+                        // triedToMove is the probability that we tried to move in that direction, and failed
+                        pPassable += p * pBaseMove;
+                        // pPassable is the probability that we tried to move, and that our actual moving target was passable
+                    } else {
+                        pStationary += pBaseMove;
+                        // pStationary is the probability that we didn;t try to move
                     }
+                    // hence 1.0 - pPassable - pStationary is the probability that we tried to move, but failed to
                 }
 
                 GameStatusTracker newGST = gst.getGST(tick);
                 if (blockOf(pos) != blockOf(lastPosition)) {    // we did move
-                    List<Pair<Integer, Vector2d>> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, newGST.getCurrentSSO(), pos);
+                    List<Pair<Integer, Vector2d>> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, lastGST.getCurrentSSO(), lastPosition, pos);
                     if (debug)
                         logFile.log(String.format("Block has changed with %d new collisions", collisionIDs.size()));
                     for (Pair<Integer, Vector2d> c : collisionIDs) {
                         if (debug) logFile.log(String.format("Object %d at %s", c.getValue0(), c.getValue1()));
-                        updatePassability(gst.getType(c.getValue0()), 1.0 / pBaseMove);
+                        updatePassability(gst.getType(c.getValue0()), 1.0);
                     }
                 } else { // we stayed in same block
                     // now the counterfactual for moves that did not happen
                     if (debug) logFile.log("Block has not changed");
                     for (int j = 0; j < predictions.size(); j++) {
                         Pair<Double, Vector2d> pred = predictions.get(j);
+                        if (pred.getValue0() < 10e-5)
+                            continue;
                         Pair<Double, Vector2d> basePred = basePredictions.get(j);
                         if (debug)
                             logFile.log(String.format("Processing counterfactual for %.2f (%.2f) probability of %s",
                                     pred.getValue0(), basePred.getValue0(), pred.getValue1().toString()));
                         boolean movedBlock = blockOf(pred.getValue1()) != blockOf(lastPosition);
                         if (movedBlock) { // should have moved; but stayed in same place
-                            List<Pair<Integer, Vector2d>> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, newGST.getCurrentSSO(), pred.getValue1());
+                            List<Pair<Integer, Vector2d>> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, newGST.getCurrentSSO(), lastPosition, pred.getValue1());
                             if (debug)
                                 logFile.log(String.format("Would have moved and had %d collisions in that scenario", collisionIDs.size()));
                             for (Pair<Integer, Vector2d> c : collisionIDs) {
@@ -106,12 +118,21 @@ public class SimpleAvatarModel implements BehaviourModel {
 
                 double[] count = counts.get(lastMove);
                 int heading = HopshackleUtilities.directionOf(v).getValue1();
+                double countInc = 1.0;
                 if (v.mag() < blockSize / 2.0) {
                     heading = 8;
+                    countInc = pPassable + pStationary;
+                    for (int j = 0; j < predictions.size(); j++) {
+                        if (pTriedToMove[j] > 0.00) {
+                            Vector2d direction = predictions.get(j).getValue1();
+                            Vector2d counterfactualV = direction.subtract(lastPosition);
+                            count[HopshackleUtilities.directionOf(counterfactualV).getValue1()] += pTriedToMove[j];
+                        }
+                    }
                 }
                 if (debug)
-                    logFile.log(String.format("Incrementing count for heading %d by %.2f", heading, 1.0 / pPassable));
-                count[heading] += 1.0 / pPassable;
+                    logFile.log(String.format("Incrementing count for heading %d by %.2f", heading, countInc));
+                count[heading] += countInc;
             }
 
             lastPosition = pos;
@@ -184,10 +205,6 @@ public class SimpleAvatarModel implements BehaviourModel {
                 updatedPdf.add(base.getValue0());
             }
         }
-        double totalP = 0.00;
-        for (double p : updatedPdf) {
-            totalP += p;
-        }
 
         double[] newPdf = HopshackleUtilities.normalise(updatedPdf);
 
@@ -216,7 +233,6 @@ public class SimpleAvatarModel implements BehaviourModel {
                 double new_x = currentPosition.x + blockSize * xChange[i];
                 double new_y = currentPosition.y + blockSize * yChange[i];
                 Vector2d newPosition = new Vector2d(new_x, new_y);
-
                 pdf.add(p);
                 positions.add(newPosition);
             }
@@ -234,7 +250,9 @@ public class SimpleAvatarModel implements BehaviourModel {
         if (offScreen(nextPosition)) {
             return 0.00;
         }
-        List<Pair<Integer, Vector2d>> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, gst.getCurrentSSO(), nextPosition);
+        SerializableStateObservation currentSSO = gst.getCurrentSSO();
+        Vector2d currentPosition = new Vector2d(currentSSO.avatarPosition[0], currentSSO.avatarPosition[1]);
+        List<Pair<Integer, Vector2d>> collisionIDs = SSOModifier.newCollisionsOf(0, SSOModifier.TYPE_AVATAR, currentSSO, currentPosition, nextPosition);
         for (Pair<Integer, Vector2d> c : collisionIDs) {
             int type = gst.getType(c.getValue0());
             if (passable.containsKey(type)) {

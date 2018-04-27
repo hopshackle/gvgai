@@ -96,6 +96,8 @@ public class SSOModifier {
                 observationGrid[x][y + 1].add(obs);
             if (xPlus && yPlus)
                 observationGrid[x + 1][y + 1].add(obs);
+        } else {
+            throw new AssertionError("Invalid position to place Observation : " + position);
         }
     }
 
@@ -167,10 +169,6 @@ public class SSOModifier {
         }
     }
 
-    public static void moveSprite(int id, int category, Vector2d newPos, SerializableStateObservation sso) {
-        moveSprite(id, category, newPos.x, newPos.y, sso);
-    }
-
     public static void moveSprite(int id, int category, double x, double y, SerializableStateObservation sso) {
         if (category == TYPE_AVATAR) {
             double oldX = sso.avatarPosition[0];
@@ -204,10 +202,13 @@ public class SSOModifier {
                 throw new AssertionError("Whoops");
             }
             for (Observation obs : sso.observationGrid[x][y]) {
-                if (obs.obsID == id) {
+                if (obs.obsID == id || (id == 0 && obs.category == TYPE_AVATAR)) {
                     // found it
                     obsToRemove = obs;
                 }
+            }
+            if (obsToRemove == null) {
+                throw new AssertionError(String.format("ID: %d not found at %.0f : %.0f", id, oldX, oldY));
             }
             // then we pull it out
             for (int i = x - 1; i < x + 2; i++) {
@@ -235,15 +236,20 @@ public class SSOModifier {
             y = (int) (newY / sso.blockSize);
             boolean yPlus = (newY % sso.blockSize) > 0 && (y + 1 < sso.observationGrid[0].length);
 
-            // and put it back in the right place
+            Observation obsToAdd = new Observation();
+            obsToAdd.position = new Vector2d(newX, newY);
+            obsToAdd.obsID = obsToRemove.obsID;
+            obsToAdd.itype = obsToRemove.itype;
+            obsToAdd.category = obsToRemove.category;
+
             if (x >= 0 && y >= 0 && x < sso.observationGrid.length && y < sso.observationGrid[0].length) {
-                addObservationToEndOfRow(x, y, obsToRemove, sso.observationGrid);
+                addObservationToEndOfRow(x, y, obsToAdd, sso.observationGrid);
                 if (xPlus)
-                    addObservationToEndOfRow(x + 1, y, obsToRemove, sso.observationGrid);
+                    addObservationToEndOfRow(x + 1, y, obsToAdd, sso.observationGrid);
                 if (yPlus)
-                    addObservationToEndOfRow(x, y + 1, obsToRemove, sso.observationGrid);
+                    addObservationToEndOfRow(x, y + 1, obsToAdd, sso.observationGrid);
                 if (xPlus && yPlus)
-                    addObservationToEndOfRow(x + 1, y + 1, obsToRemove, sso.observationGrid);
+                    addObservationToEndOfRow(x + 1, y + 1, obsToAdd, sso.observationGrid);
             }
         }
     }
@@ -356,7 +362,15 @@ public class SSOModifier {
                 if (sso.observationGrid[i][j].length > 1) {
                     for (int k = 0; k < sso.observationGrid[i][j].length - 1; k++) {
                         for (int l = k + 1; l < sso.observationGrid[i][j].length; l++) {
-                            retValue.add(new Pair(sso.observationGrid[i][j][k].obsID, sso.observationGrid[i][j][l].obsID));
+                            // this is a bit of a hack to cater to the fact that the SSO from the server does not explicitly tell
+                            // us the objID of the Avatar, so internally we always assume this is 0
+                            if (sso.observationGrid[i][j][k].category == TYPE_AVATAR) {
+                                retValue.add(new Pair(0, sso.observationGrid[i][j][l].obsID));
+                            } else if (sso.observationGrid[i][j][l].category == TYPE_AVATAR) {
+                                retValue.add(new Pair(sso.observationGrid[i][j][k].obsID, 0));
+                            } else {
+                                retValue.add(new Pair(sso.observationGrid[i][j][k].obsID, sso.observationGrid[i][j][l].obsID));
+                            }
                         }
                     }
                 }
@@ -366,12 +380,21 @@ public class SSOModifier {
         return retValue;
     }
 
-    public static List<Pair<Integer, Vector2d>> newCollisionsOf(int objId, int category, SerializableStateObservation sso, Vector2d newPosition) {
+    public static List<Pair<Integer, Vector2d>> newCollisionsOf(int objId, int category, SerializableStateObservation sso, Vector2d oldPosition, Vector2d newPosition) {
+        List<Pair<Integer, Vector2d>> retValue = new ArrayList();
+        Set<Pair<Integer, Integer>> collisionsBefore = SSOModifier.detectCollisions(sso);
+        moveSpriteOnGrid(objId, sso, oldPosition.x, oldPosition.y, newPosition.x, newPosition.y);
+        Set<Pair<Integer, Integer>> collisions = SSOModifier.detectCollisions(sso);
+        collisions.removeAll(collisionsBefore);
+        moveSpriteOnGrid(objId, sso, newPosition.x, newPosition.y, oldPosition.x, oldPosition.y);
+
+        /*
         List<Pair<Integer, Vector2d>> retValue = new ArrayList();
         SerializableStateObservation projectedSSO = SSOModifier.copy(sso);
         moveSprite(objId, category, newPosition, projectedSSO);
         constructGrid(projectedSSO);
         Set<Pair<Integer, Integer>> collisions = newCollisions(sso, projectedSSO);
+        */
         for (Pair<Integer, Integer> c : collisions) {
             if (c.getValue0() == objId) {
                 retValue.add(new Pair(c.getValue1(), SSOModifier.positionOf(c.getValue1(), sso)));
@@ -381,13 +404,6 @@ public class SSOModifier {
             }
         }
         return retValue;
-    }
-
-    public static Set<Pair<Integer, Integer>> newCollisions(SerializableStateObservation start, SerializableStateObservation finish) {
-        Set<Pair<Integer, Integer>> collisionsBefore = SSOModifier.detectCollisions(start);
-        Set<Pair<Integer, Integer>> collisionsAfter = SSOModifier.detectCollisions(finish);
-        collisionsAfter.removeAll(collisionsBefore);
-        return collisionsAfter;
     }
 
     public static final int TYPE_AVATAR = 0;

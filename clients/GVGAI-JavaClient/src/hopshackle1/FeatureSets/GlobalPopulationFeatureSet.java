@@ -23,37 +23,37 @@ public class GlobalPopulationFeatureSet implements FeatureSet {
             if (obs[i].length > 0 && obs[i][0] != null) {
                 int spriteType = obs[i][0].itype;
                 int numberOfSprites = obs[i].length;
+                int f = 0;
                 if (numberOfSprites > 0) {
-                    base.setFeature(spriteType * 113, 1.0);
-                    if (FeatureSetLibrary.debug) {
-                        FeatureSetLibrary.registerFeature(spriteType * 113,  String.format("At least 1 sprite of type %d", spriteType));
-                    }
+                    f = spriteType * 113;
+                    setFeature(base, f, 1, spriteType);
                 }
                 if (numberOfSprites > 1) {
-                    base.setFeature(spriteType * 199, 1.0);
-                    if (FeatureSetLibrary.debug) {
-                        FeatureSetLibrary.registerFeature(spriteType * 199,  String.format("At least 2 sprites of type %d", spriteType));
-                    }
+                    f = spriteType * 199;
+                    setFeature(base, f, 2, spriteType);
                 }
                 if (numberOfSprites > 3) {
-                    base.setFeature(spriteType * 941, 1.0);
-                    if (FeatureSetLibrary.debug) {
-                        FeatureSetLibrary.registerFeature(spriteType * 941,  String.format("At least 4 sprites of type %d", spriteType));
-                    }
+                    f = spriteType * 941;
+                    setFeature(base, f, 4, spriteType);
                 }
                 if (numberOfSprites > 7) {
-                    base.setFeature(spriteType * 101323, 1.0);
-                    if (FeatureSetLibrary.debug) {
-                        FeatureSetLibrary.registerFeature(spriteType * 101323,  String.format("At least 8 sprites of type %d", spriteType));
-                    }
+                    f = spriteType * 101323;
+                    setFeature(base, f, 8, spriteType);
                 }
                 if (numberOfSprites > 15) {
-                    base.setFeature(spriteType * 2531, 1.0);
-                    if (FeatureSetLibrary.debug) {
-                        FeatureSetLibrary.registerFeature(spriteType * 2531,  String.format("At least 16 sprites of type %d", spriteType));
-                    }
+                    f = spriteType * 2531;
+                    setFeature(base, f, 16, spriteType);
                 }
             }
+        }
+    }
+
+    private void setFeature (State base, int f, int n, int spriteType) {
+        base.setFeature(f, 1.0);
+        if (FeatureSetLibrary.debug) {
+            FeatureSetLibrary.registerFeature(f,  "Global", String.format("At least %d sprites of type %d", n, spriteType));
+        } else {
+            FeatureSetLibrary.registerFeature(f,  "Global");
         }
     }
 }

@@ -31,6 +31,11 @@ public class MonteCarloReward implements RLTargetCalculator, ReinforcementLearni
     }
 
     @Override
+    public int recrystalliseRewards(List<SARTuple> data) {
+        return 0;
+    }
+
+    @Override
     public double learningRate() {
         return alpha;
     }

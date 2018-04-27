@@ -236,6 +236,40 @@ public class GameStatusTracker {
         return retValue;
     }
 
+    public List<Integer> allSpritesFurtherThan(double distance){
+        List<Integer> retValue = new ArrayList();
+        for (int id : currentPositions.keySet()) {
+            if (getCurrentPosition(id).dist(getCurrentPosition(0)) > distance) {
+                retValue.add(id);
+            }
+        }
+        return retValue;
+    }
+
+    public List<Integer> allSpritesWithin(double distance){
+        List<Integer> retValue = new ArrayList();
+        for (int id : currentPositions.keySet()) {
+            if (id == 0) continue;
+            if (getCurrentPosition(id).dist(getCurrentPosition(0)) <= distance) {
+                retValue.add(id);
+            }
+        }
+        return retValue;
+    }
+
+    public Set<Integer> allTypesNotWithin(double distance){
+        List<Integer> distantIndividuals = allSpritesFurtherThan(distance);
+        List<Integer> closeIndividuals = allSpritesWithin(distance);
+        Set<Integer> retValue = new HashSet();
+        for (int id : distantIndividuals) {
+            retValue.add(IDToCategoryAndType.get(id).getValue1());
+        }
+        for (int id : closeIndividuals) {
+            retValue.remove(IDToCategoryAndType.get(id).getValue1());
+        }
+        return retValue;
+    }
+
     public Set<Integer> listOfCategories() {
         Set<Integer> retValue = new HashSet();
         for (int id : IDToCategoryAndType.keySet()) {

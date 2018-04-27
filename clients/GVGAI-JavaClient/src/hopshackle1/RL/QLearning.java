@@ -16,6 +16,7 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
     private boolean debug = true;
     private boolean normalise;
     private EntityLog logFile;
+    public int recrystallisationThreshold = 10;
 
     public QLearning(int n, double alpha, double gamma, double lambda, boolean normaliseAlpha, ActionValueFunctionApproximator fa) {
         this.alpha = alpha;
@@ -28,6 +29,23 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
         if (debug) {
             logFile = new EntityLog("QLearning");
         }
+    }
+
+    @Override
+    public int recrystalliseRewards(List<SARTuple> data) {
+        // in this we do not change the linkage of records, but reconsider what the bst next action is
+        int retValue = 0;
+        for (SARTuple tuple : data) {
+            if (tuple.getProcessCount() >= recrystallisationThreshold) {
+                tuple.resetCount();
+                ActionValue bestAction = QFunction.valueOfBestAction(tuple.rewardGST, tuple.availableEndActions);
+                if (bestAction.action != tuple.actionFromEnd) {
+                    retValue++;
+                    tuple.actionFromEnd = bestAction.action;
+                }
+            }
+        }
+        return retValue;
     }
 
     @Override

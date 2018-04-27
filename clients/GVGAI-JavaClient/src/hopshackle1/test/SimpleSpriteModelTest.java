@@ -46,6 +46,7 @@ public class SimpleSpriteModelTest {
     }
 
     private void updateGST() {
+        SSOModifier.constructGrid(sso);
         gst.update(sso);
         sso = SSOModifier.copy(sso);
         sso.gameTick++;
@@ -246,6 +247,7 @@ public class SimpleSpriteModelTest {
         sso.NPCPositions[1][0] = createNPCObservation(11, 6, 4, 15, 10);
         sso.movablePositions[0][0] = createNPCObservation(20, 6,2, 10, 20);
         sso.fromAvatarSpritesPositions[0][0] = createNPCObservation(60, 6, 6, 0, 10);
+        SSOModifier.constructGrid(sso);
      //   model.updateModelStatistics(sso);
      //   turnRight.updateModelStatistics(sso);
      //   stayStill.updateModelStatistics(sso);

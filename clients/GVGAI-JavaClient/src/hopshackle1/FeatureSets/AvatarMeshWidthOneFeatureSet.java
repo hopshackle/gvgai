@@ -9,8 +9,10 @@ public class AvatarMeshWidthOneFeatureSet implements FeatureSet {
     private boolean debug = false;
     private EntityLog logFile = new EntityLog("AvatarMeshFeatures");
     private int distanceFromAvatar = 1;
+    private String setName;
 
     public AvatarMeshWidthOneFeatureSet(int distance) {
+        setName = "AvatarMeshOne-" + distance;
         distanceFromAvatar = distance;
     }
 
@@ -32,7 +34,9 @@ public class AvatarMeshWidthOneFeatureSet implements FeatureSet {
                     int feature = meshHash + (i + 1) * 6703 + (j + 1) * 28697;
                     retValue.setFeature(feature, 1.0);
                     if (FeatureSetLibrary.debug) {
-                        FeatureSetLibrary.registerFeature(feature,  String.format("%d %s at %d:%d", meshHash, mesh.abbrev(), i, j));
+                        FeatureSetLibrary.registerFeature(feature,  setName, String.format("%d %s at %d:%d", meshHash, mesh.abbrev(), i, j));
+                    } else {
+                        FeatureSetLibrary.registerFeature(feature,  setName);
                     }
                 }
             }

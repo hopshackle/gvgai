@@ -23,7 +23,6 @@ public class MCTSMaxPolicy extends MCTSPolicyFullExpansion {
             Triplet<Integer, Integer, Double> data = treeEntryFor(node);    // where we end up from node
 
             Types.ACTIONS bestOnwardAction = bestActionFrom(data.getValue0(), getPossibleActionsAfter(node.getValue1())); // best value to take from node
-            // TODO: Not if this is the end of the trajectory
             Triplet<Integer, Integer, Double> nextNodeData = treeEntryFor(new Pair(data.getValue0(), bestOnwardAction));
             double bestOnwardValue = finalValue;
             if (nextNodeData != null && nextNodeData.getValue1() > 1) {

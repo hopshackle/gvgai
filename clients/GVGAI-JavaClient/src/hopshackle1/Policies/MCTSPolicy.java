@@ -22,6 +22,7 @@ public class MCTSPolicy implements Policy {
     public boolean robust = false;  // true will use visits to decide final action; false will use value
     public EntityLog logFile = hopshackle1.Agent.logFile;
     protected Random rnd = new Random(45);
+    public boolean useMAP = true;
 
     public MCTSPolicy(BehaviourModel worldModel, ActionValueFunctionApproximator leafValuer, double C, double defaultCoeff, double temperature) {
         model = worldModel;
@@ -107,7 +108,7 @@ public class MCTSPolicy implements Policy {
 
         // now we can roll forward and value this
         GameStatusTracker newGST = new GameStatusTracker(gameStates.get(state));
-        newGST.rollForward(model, action);
+        newGST.rollForward(model, action, useMAP);
         gameStates.put(nextStateCounter(), newGST);
         double value = evalFunction.value(newGST.getCurrentSSO());
         tree.put(new Pair(state, action), new Triplet(stateIDCounter, 1, value));

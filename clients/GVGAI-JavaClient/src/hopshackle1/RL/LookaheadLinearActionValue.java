@@ -6,6 +6,7 @@ import hopshackle1.models.*;
 import serialization.*;
 import serialization.Types.*;
 import hopshackle1.Policies.*;
+import org.javatuples.*;
 
 import java.util.*;
 
@@ -129,6 +130,7 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
         }
 
         modifyCoeff(startState.features, delta, rl);
+        tuple.incrementCount();
 
         return delta;
     }
@@ -194,13 +196,39 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
 
     @Override
     public String toString() {
-        StringBuilder retValue = new StringBuilder();
+        StringBuilder retValue = new StringBuilder("Total features: " + coefficients.size() + "\n");
         List<Integer> featureIDs = HopshackleUtilities.convertSetToList(coefficients.keySet());
-        Collections.sort(featureIDs);
+        Collections.sort(featureIDs, new Comparator<Integer>() {
+            @Override
+            public int compare(Integer o1, Integer o2) {
+                double diff = Math.abs(coefficients.get(o2)) - Math.abs(coefficients.get(o1));
+                if (diff > 0.00) return 1;
+                if (diff < 0.00) return -1;
+                return 0;
+            }
+        });
+        int maxFeaturesToLog = 100;
+        Map<String, Triplet<Integer, Double, Double>> featureSetStats = new HashMap();
         for (int f : featureIDs) {
-            if (coefficients.get(f) != 1.0)
+            if (maxFeaturesToLog > 0) {
                 retValue.append(String.format("\t%d\t%.3f\t%s\n", f, coefficients.get(f), FeatureSetLibrary.getDescription(f)));
+            }
+            String set = FeatureSetLibrary.getFeatureSet(f);
+            double absCoeff = Math.abs(coefficients.get(f));
+            Triplet<Integer, Double, Double> currentStats = featureSetStats.getOrDefault(set, new Triplet(0, 0.0, 0.0));
+            Triplet<Integer, Double, Double> newStats = new Triplet(currentStats.getValue0() + 1, currentStats.getValue1() + absCoeff, currentStats.getValue2() + absCoeff * absCoeff);
+            featureSetStats.put(set, newStats);
+            maxFeaturesToLog--;
         }
+
+        retValue.append("\nFeatureSet Analysis\n");
+        for (String featureSet : featureSetStats.keySet()) {
+            Triplet<Integer, Double, Double> stats = featureSetStats.get(featureSet);
+            double mean = stats.getValue1() / stats.getValue0();
+            double variance = stats.getValue2() / stats.getValue0() - mean * mean;
+            retValue.append(String.format("\t%s\tNumber: %d\tMean: %.3f\tStd Dev: %.3f\n", featureSet, stats.getValue0(), mean, Math.sqrt(variance)));
+        }
+
         return retValue.toString();
     }
 }
