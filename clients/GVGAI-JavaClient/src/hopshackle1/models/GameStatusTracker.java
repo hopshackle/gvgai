@@ -257,6 +257,15 @@ public class GameStatusTracker {
         return retValue;
     }
 
+    public Set<Integer> allSpriteTypesWithin(double distance) {
+        List<Integer> spriteIDs = allSpritesWithin(distance);
+        Set<Integer> retValue = new HashSet();
+        for (int id : spriteIDs) {
+            retValue.add(getType(id));
+        }
+        return retValue;
+    }
+
     public Set<Integer> allTypesNotWithin(double distance){
         List<Integer> distantIndividuals = allSpritesFurtherThan(distance);
         List<Integer> closeIndividuals = allSpritesWithin(distance);
@@ -269,6 +278,7 @@ public class GameStatusTracker {
         }
         return retValue;
     }
+
 
     public Set<Integer> listOfCategories() {
         Set<Integer> retValue = new HashSet();

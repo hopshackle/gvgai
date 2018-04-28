@@ -52,16 +52,15 @@ public class Agent extends utils.AbstractPlayer {
     private Map<Integer, Integer> featureSeenCount = new HashMap();
     private double rewardPerNewFeature = 1.0;
     private double tickPenalty = 0.0;
-    private double defaultCoefficient = 0.0, totalReward = 0.0;
+    private double defaultCoefficient = 0.0, policyTargetReward = 0.0;
     private double temperature = 0.3;
     private int newFeaturesInEpisode, tuplesUsed, policyTarget;
     private long totalTime;
-    private int tickOfLastReward, noRewardLimit = 50;
+    private int tickOfLastReward, noRewardLimit = 50, policyTargetAdopted;
     private CompositePolicyGuide policyGuide;
+    private ExplorationGuide explorationGuide;
     private boolean validationMode = false;
     private Map<Integer, Pair<Integer, Double>> policyGuideScores = new HashMap();
-    private int[] recrystallisationPoints = new int[]{30, 60, 120, 180, 240, 32767};
-    private int recrystallisationIndex = 0;
     private long learningStartTime;
 
     /**
@@ -78,7 +77,6 @@ public class Agent extends utils.AbstractPlayer {
         this.game_selector_ = new GameSelector();
         this.current_level_ = 0;
         this.game_plays_ = 0;
-        recrystallisationIndex = 0;
         learningStartTime = System.currentTimeMillis();
         logFile = new EntityLog("Hopshackle1");
 
@@ -134,10 +132,7 @@ public class Agent extends utils.AbstractPlayer {
         policy = new MCTSMaxPolicy(model, QFunction, 3.0, MCDefault, temperature);
         policyGuide.clear();
         policyGuide.add(new RetraceDisincentive(frequencyCount));
-        policyTarget = getNextPolicyTarget(gst);
-        if (policyTarget != -1)
-            policyGuide.add(new ExplorationGuide(policyTarget, gst));
-        totalReward = 0.00;
+        updatePolicyTarget(gst);
     }
 
 
@@ -182,6 +177,13 @@ public class Agent extends utils.AbstractPlayer {
             // logFile.log(model.toString());
         }
         QFunction.injectPolicyGuide(null);
+
+        if (gst.allSpriteTypesWithin(1.0).contains(policyTarget) || (sso.gameTick - policyTargetAdopted) > 100) {
+            if (gst.allSpriteTypesWithin(1.0).contains(policyTarget))
+                logFile.log(String.format("Reaches target of type %d", policyTarget));
+            updatePolicyGuideStats(sso);
+            updatePolicyTarget(gst);
+        }
 
         if (trackModelAccuracy && !firstGame && model != null) {
             // score the result of our predictions
@@ -277,7 +279,7 @@ public class Agent extends utils.AbstractPlayer {
         if (firstGame) {
             firstGame = false;
         }
-        updatePolicyGuideStats();
+        updatePolicyGuideStats(sso);
 
         logInterestingStatistics();
 
@@ -330,7 +332,7 @@ public class Agent extends utils.AbstractPlayer {
         // for a featureSet with 100 of that type. This is scaled linearly in time (earlier features count for much less),
         // and as the inverse square root of the size of the feature set
         double proportionOfTimeSpent = (System.currentTimeMillis() - learningStartTime) / (1000.0 * 60.0 * 2.5);
-   //     proportionOfTimeSpent *= proportionOfTimeSpent;
+        //     proportionOfTimeSpent *= proportionOfTimeSpent;
         double explorationReward = 0.0;
         if (rewardPerNewFeature > 0.00 && !sso.isGameOver()) {
             double newFeatures = 0.0;
@@ -361,23 +363,20 @@ public class Agent extends utils.AbstractPlayer {
             tickOfLastReward = sso.gameTick;
         }
         double fullReward = new_score - last_score_ + explorationReward - tickPenalty * sso.gameTick;
-        totalReward = gamma * totalReward + fullReward;
+        policyTargetReward = gamma * policyTargetReward + fullReward;
         return fullReward;
     }
 
 
     public void processNewTrajectory() {
-    //    if ((System.currentTimeMillis() - learningStartTime) / 1000 > recrystallisationPoints[recrystallisationIndex]) {
-            recrystallisationIndex++;
-            int recordsChanged = rewardCalculator.recrystalliseRewards(databank.getAllData());
-            logFile.log(String.format("Recrystallising historic data : %d of %d records changed", recordsChanged, databank.getAllData().size()));
-   //     }
-        databank.addData(currentTrajectory);
         rewardCalculator.crystalliseRewards(currentTrajectory);
+        databank.addData(currentTrajectory);
+        int recordsChanged = rewardCalculator.recrystalliseRewards(databank.getAllData());
+        logFile.log(String.format("Recrystallising historic data : %d of %d records changed", recordsChanged, databank.getAllData().size()));
     }
 
-    private int getNextPolicyTarget(GameStatusTracker gst) {
-        Set<Integer> allTypes = gst.allTypesNotWithin(gst.getBlockSize() * 3.0);
+    private void updatePolicyTarget(GameStatusTracker gst) {
+        Set<Integer> allTypes = gst.allTypesNotWithin(gst.getBlockSize() * 2.0);
         allTypes.add(-1);
         double maxScore = Double.NEGATIVE_INFINITY;
         int chosenType = -1;
@@ -385,28 +384,43 @@ public class Agent extends utils.AbstractPlayer {
         int avatarType = gst.getType(0);
         for (int type : allTypes) {
             if (type == avatarType) continue;
-            Pair<Integer, Double> data = policyGuideScores.getOrDefault(type, new Pair(0, 100.0));
+            Pair<Integer, Double> data = policyGuideScores.getOrDefault(type, new Pair(0, 0.0));
             int featureIndex = avatarType * 34949 + type * 24371 + 821;
             if (type < avatarType) {
                 featureIndex = type * 34949 + avatarType * 24371 + 821;
             }
             double collisionValue = QFunction.valueOfCoefficient(featureIndex);
-            double score = data.getValue1() + 10.0 * collisionValue + C * Math.sqrt(Math.log(game_plays_ + 1) / data.getValue0() + 1);
+            double score = data.getValue1() + 10.0 * collisionValue + C * Math.sqrt((game_plays_ + 1) / (data.getValue0() + 1));
             logFile.log(String.format("UCB score for type %d is %.2f (%.2f base, %d visits, %.2f collision)", type, score, data.getValue1(), data.getValue0(), collisionValue));
             if (score > maxScore) {
                 maxScore = score;
                 chosenType = type;
             }
         }
-        return chosenType;
+        policyTargetReward = 0.0;
+        policyTargetAdopted = gst.getCurrentTick();
+
+        policyTarget = chosenType;
+        if (explorationGuide != null) // remove old guide
+            policyGuide.remove(explorationGuide);
+
+        if (chosenType == -1) { // add new one
+            explorationGuide = null;
+        } else {
+            explorationGuide = new ExplorationGuide(chosenType, gst);
+            policyGuide.add(explorationGuide);
+        }
     }
 
-    private void updatePolicyGuideStats() {
-        logFile.log(String.format("PolicyGuide for type %d obtains reward %.2f", policyTarget, totalReward));
+    private void updatePolicyGuideStats(SerializableStateObservation sso) {
+        double endValue = 0.0;
+        if (!sso.isGameOver)
+            endValue = QFunction.value(sso);
+        logFile.log(String.format("PolicyGuide for type %d obtains reward %.2f with end value of %.2f", policyTarget, policyTargetReward, endValue));
         Pair<Integer, Double> data = policyGuideScores.getOrDefault(policyTarget, new Pair(0, 0.0));
         int count = data.getValue0();
         double value = data.getValue1();
-        policyGuideScores.put(policyTarget, new Pair(count + 1, (value * count + totalReward) / (count + 1)));
+        policyGuideScores.put(policyTarget, new Pair(count + 1, (value * count + (policyTargetReward + endValue)) / (count + 1)));
     }
 
     private void logInterestingStatistics() {
