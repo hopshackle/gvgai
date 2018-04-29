@@ -35,7 +35,7 @@ public class Agent extends utils.AbstractPlayer {
     public static EntityLog logFile;
     private boolean debug = false;
     private boolean detailedPredictionDebug = false;
-    private int switchOnDebugAtGame = 200;
+    private int switchOnDebugAtGame = 1000;
     private ActionValueFunctionApproximator QFunction;
     private boolean firstGame = true, trackModelAccuracy = false;
     private BehaviourModel model;

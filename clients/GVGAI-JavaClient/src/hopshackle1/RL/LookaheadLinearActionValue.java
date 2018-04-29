@@ -130,7 +130,6 @@ public class LookaheadLinearActionValue implements ActionValueFunctionApproximat
         }
 
         modifyCoeff(startState.features, delta, rl);
-        tuple.incrementCount();
 
         return delta;
     }

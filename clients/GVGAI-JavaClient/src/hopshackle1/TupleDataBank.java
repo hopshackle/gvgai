@@ -8,12 +8,12 @@ import org.javatuples.*;
 
 public class TupleDataBank {
 
-    private List<SARTuple> data = new ArrayList();
-    private int tupleLimit;
+    protected List<SARTuple> data = new ArrayList();
+    private final int tupleLimit;
     private Random rnd = new Random();
-    private boolean debug = false;
-    private double PRIORITISATION_THRESHOLD;
-    private EntityLog logFile;
+    protected boolean debug = false;
+    protected double PRIORITISATION_THRESHOLD;
+    protected EntityLog logFile;
 
     public TupleDataBank(int limit, double threshold) {
         if (debug) logFile = new EntityLog("TupleDataBank");
@@ -30,7 +30,7 @@ public class TupleDataBank {
         }
         int historicTuplesToUse = Math.max(tupleLimit - newData.size(), 0);
         if (data.size() > historicTuplesToUse) {
-            data = HopshackleUtilities.cloneList(data.subList(0, historicTuplesToUse));
+            data = HopshackleUtilities.cloneList(data.subList(data.size() - historicTuplesToUse, data.size()));
         }
         data.addAll(newData);
     }
@@ -39,27 +39,38 @@ public class TupleDataBank {
         return data;
     }
 
-    private Pair<Integer, SARTuple> getTuple() {
+    protected SARTuple getTuple() {
         int roll = rnd.nextInt(data.size());
-        return new Pair(roll, data.get(roll));
+        return data.get(roll);
+    }
+
+    protected void updateTuple(SARTuple tuple, double delta) {
+        if (data.size() > 100 && Math.abs(delta) < PRIORITISATION_THRESHOLD) {
+            data.remove(tuple);
+        }
+    }
+
+    protected int getDataSize() {
+        return data.size();
     }
 
     public int teach(Trainable fa, int milliseconds, ReinforcementLearningAlgorithm rl) {
-        if (data.isEmpty()) return 0;
-        int tuplesUsed = 0, tuplesFiltered = 0, startingTuples = data.size();
+        int startingTuples = getDataSize();
+        if (startingTuples == 0) return 0;
+        int tuplesUsed = 0;
         long startTime = System.currentTimeMillis();
         do {
             tuplesUsed++;
-            Pair<Integer, SARTuple> tupleData = getTuple();
-            double delta = fa.learnFrom(tupleData.getValue1(), rl);
-            if (startingTuples > 100 && Math.abs(delta) < PRIORITISATION_THRESHOLD) {
-                data.remove((int) tupleData.getValue0());
-                tuplesFiltered++;
-            }
-        } while (System.currentTimeMillis() < startTime + milliseconds && !data.isEmpty());
+            SARTuple tuple = getTuple();
+            double delta = fa.learnFrom(tuple, rl);
+            tuple.process();
+            updateTuple(tuple, delta);
 
+        } while (System.currentTimeMillis() < startTime + milliseconds && getDataSize() > 0);
+
+        int tuplesFiltered = startingTuples - getDataSize();
         if (debug) logFile.log(String.format("%d tuples of %d used in training in %d ms (%d removed)",
-                tuplesUsed, data.size(), System.currentTimeMillis() - startTime, tuplesFiltered));
+                tuplesUsed, getDataSize(), System.currentTimeMillis() - startTime, tuplesFiltered));
         return tuplesUsed;
     }
 

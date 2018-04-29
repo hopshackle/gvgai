@@ -6,7 +6,6 @@ import hopshackle1.*;
 import hopshackle1.FeatureSets.FeatureSet;
 import hopshackle1.RL.*;
 import hopshackle1.models.GameStatusTracker;
-import serialization.*;
 import serialization.Types.*;
 
 public class Reinforce implements Policy, Trainable {
@@ -96,7 +95,6 @@ public class Reinforce implements Policy, Trainable {
             }
         }
         if (fullDebug) logFile.flush();
-        tuple.incrementCount();
         return target;
     }
 

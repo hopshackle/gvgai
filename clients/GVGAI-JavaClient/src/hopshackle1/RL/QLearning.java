@@ -51,7 +51,7 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
     @Override
     public void crystalliseRewards(LinkedList<SARTuple> data) {
         Iterator<SARTuple> backwardsChain = data.descendingIterator();
-        GameStatusTracker[] nStepState = new GameStatusTracker[nStepReward];
+        SARTuple[] nStepTuple = new SARTuple[nStepReward];
         ACTIONS[] nStepBestAction = new ACTIONS[nStepReward];
         double[] nSteps = new double[nStepReward];
         int currentIndex = 0;
@@ -72,7 +72,7 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
 
             // then estimate the best action (and also record the state from which we take it)
             ActionValue bestAction = QFunction.valueOfBestAction(previous.nextGST, previous.availableEndActions);
-            nStepState[currentIndex] = (previous.nextGST == null) ? null : previous.nextGST;
+            nStepTuple[currentIndex] = previous;
             nStepBestAction[currentIndex] = bestAction.action;
 
             currentIndex = (currentIndex + 1) % nStepReward;
@@ -84,7 +84,7 @@ public class QLearning implements RLTargetCalculator, ReinforcementLearningAlgor
             }
 
             // and add on the discounted value of the state N in the future
-            previous.setTarget(nStepState[currentIndex], nStepBestAction[currentIndex], runningRewardSum, gammaN);
+            previous.setTarget(nStepTuple[currentIndex], nStepBestAction[currentIndex], runningRewardSum, gammaN);
 
             if (debug) {
                 double startValue = QFunction.value(previous.startGST, previous.action);
